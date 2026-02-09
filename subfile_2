@@ -1,0 +1,12 @@
+#!/bin/bash
+#SBATCH --account=ehpc379
+#SBATCH --job-name=littleharsh
+#SBATCH --nodes=1
+#SBATCH --ntasks=40
+#SBATCH --time=00:10:00
+#SBATCH --qos=gp_ehpc
+
+export SLURM_CPU_BIND=none
+
+
+mpirun -np 40 ./littleharsh
