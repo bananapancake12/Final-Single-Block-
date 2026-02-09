@@ -649,14 +649,14 @@ end if
   spUV = 0d0
   spP  = 0d0
 
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  ! if (myid == 0) then
-  !   write(*,*) 'Reading in nonlinear interaction list'
-  !   write(*,*) dirlist
-  !   write(*,*)
-  ! end if
-  ! call nonlinRead
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  if (myid == 0) then
+    write(*,*) 'Reading in nonlinear interaction list'
+    write(*,*) dirlist
+    write(*,*)
+  end if
+  call nonlinRead
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   
 end subroutine
@@ -873,30 +873,30 @@ subroutine def_k
   ! ! write(*,*) 'size(iNeg)  = ', size(iNeg)
 
 
-  ! ! for nonlinear
-  ! !! currently only works for when same discretisation for each band
-  ! do i = 0,Nspec_x/2
-  !   iLkup(i) =  i*2+1
-  !   iNeg(i) = 1
+  ! for nonlinear
+  !! currently only works for when same discretisation for each band
+  do i = 0,Nspec_x/2
+    iLkup(i) =  i*2+1
+    iNeg(i) = 1
     
-  ! end do
-  ! do i = -Nspec_x/2,-1
-  !   iLkup(i) =  abs(i)*2+1
-  !   iNeg(i) = -1
-  !   !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
-  ! end do
+  end do
+  do i = -Nspec_x/2,-1
+    iLkup(i) =  abs(i)*2+1
+    iNeg(i) = -1
+    !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
+  end do
 
 
-  ! do k = 0,Nspec_z/2-1
-  !   kLkup(k) =  k+1
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  do k = 0,Nspec_z/2-1
+    kLkup(k) =  k+1
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
 
-  ! kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
-  ! do k = -Nspec_z/2,-1
-  !   kLkup(k) = k + 1 + Ngal_z
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
+  do k = -Nspec_z/2,-1
+    kLkup(k) = k + 1 + Ngal_z
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
   
   
 end subroutine

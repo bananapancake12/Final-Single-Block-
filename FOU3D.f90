@@ -237,7 +237,7 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
   end if
 
   !!!!!!!!! four to ops: !!!!!!!!!
-  call ops_in_planes2(myid,flagst) !C! ops in planes to compute velocity products and x/z derriatives
+  call ops_in_planes(myid,flagst) !C! ops in planes to compute velocity products and x/z derriatives
 
   if(myid==0) then
     write(6,*) "t=", MPI_Wtime() - t1, "=====> Planes to modes UVP"
