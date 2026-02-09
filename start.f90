@@ -495,13 +495,13 @@ end if
 
   ! !! added nonlin read here so read before allocating proc_lims_planes
 
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  ! if (myid == 0) then
-  !   write(*,*) 'Getting Weights'
-  !   write(*,*) dirlist
-  !   write(*,*)
-  !   call get_weights
-  ! end if
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  if (myid == 0) then
+    write(*,*) 'Getting Weights'
+    write(*,*) dirlist
+    write(*,*)
+    call get_weights
+  end if
   
   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
   ! write(*,*) 'finished reading nonlinear interaction list'
@@ -1096,6 +1096,7 @@ subroutine proc_lims_planes(myid)
 
   ! new declarations 
   integer :: j, cut_plane, iplanes
+  integer :: startproc, endproc
   real(8) :: cumulative_load, cumulative_load_1, cumulative_load_2
   integer, allocatable :: jmin_plane(:), jmax_plane(:)
   integer, allocatable :: nplanes(:)
@@ -1105,59 +1106,239 @@ subroutine proc_lims_planes(myid)
   allocate(limPL_incw(3,2,0:np-1))
   allocate(limPL_excw(3,2,0:np-1))
   allocate(limPL_FFT(3,2,0:np-1))
-  ! allocate(bandPL(0:np-1))
   allocate(jmin_plane(0:np-1), jmax_plane(0:np-1))
   allocate(proc_load(0:np-1), nplanes(0:np-1))
-  ! allocate(bandPL_FFT(0:np-1))
+
 
   jlow = nyu_LB + 1
-  jupp = nyu ! jupp in get weights was N(4,3)-1 so weight allocation nneeded to be weight 
+  jupp = nyu-1 ! jupp in get weights was N(4,3)-1 so weight allocation nneeded to be weight 
                     ! (jlow:jupp+1) but here its jsut jlow to j upp b it included the +1 already
 
   proc_load = 0.0d0
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DNS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DNS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  !-------------------------------------------------------------------------------------
-  ! Simple equal-plane partition in j: give each proc roughly same no. planes for DNS
-  !-------------------------------------------------------------------------------------
+  ! !-------------------------------------------------------------------------------------
+  ! ! Simple equal-plane partition in j: give each proc roughly same no. planes for DNS
+  ! !-------------------------------------------------------------------------------------
   
-  ! total number of active planes in j (without walls)
-  iplanes = jupp - jlow + 1
+  ! ! total number of active planes in j (without walls)
+  ! iplanes = jupp - jlow + 1
 
-  ! base number of planes per proc and remainder
-  proc_planes = iplanes / np
-  rem_planes  = mod(iplanes, np)
+  ! ! base number of planes per proc and remainder
+  ! proc_planes = iplanes / np
+  ! rem_planes  = mod(iplanes, np)
 
-  j = jlow
-  do iproc = 0, np-1
+  ! j = jlow
+  ! do iproc = 0, np-1
 
-     ! first rem_planes procs get one extra plane
-     if (iproc < rem_planes) then
-        nplanes(iproc) = proc_planes + 1
-     else
-        nplanes(iproc) = proc_planes
-     end if
+  !    ! first rem_planes procs get one extra plane
+  !    if (iproc < rem_planes) then
+  !       nplanes(iproc) = proc_planes + 1
+  !    else
+  !       nplanes(iproc) = proc_planes
+  !    end if
 
-     jmin_plane(iproc) = j
-     jmax_plane(iproc) = j + nplanes(iproc) - 1
+  !    jmin_plane(iproc) = j
+  !    jmax_plane(iproc) = j + nplanes(iproc) - 1
 
-     j = jmax_plane(iproc) + 1
+  !    j = jmax_plane(iproc) + 1
 
-     ! if you still want a "load" number, just set it ~ nplanes
-     proc_load(iproc) = nplanes(iproc)
+  !    ! if you still want a "load" number, just set it ~ nplanes
+  !    proc_load(iproc) = nplanes(iproc)
 
-  end do
+  ! end do
+
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!  setting global variables !!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! do iproc = 0, np-1
+
+  !   ! default: all grids use full j-range for this proc
+  !   planelim(ugrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(ugrid,2,iproc) = jmax_plane(iproc)
+
+  !   planelim(vgrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(vgrid,2,iproc) = jmax_plane(iproc)
+
+  !   planelim(pgrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(pgrid,2,iproc) = jmax_plane(iproc)
+
+  !   ! special case: first proc (shift p-grid start)
+  !   if (iproc == 0) then
+  !     planelim(pgrid,1,iproc) = jmin_plane(iproc) + 1
+
+  !   ! special case: last proc (shrink v and p by 1 at top)
+  !   else if (iproc == np-1) then
+  !     planelim(vgrid,2,iproc) = jmax_plane(iproc) - 1
+  !     planelim(pgrid,2,iproc) = jmax_plane(iproc) - 1
+  !   end if
+
+  !   nplanes(iproc) = planelim(ugrid,2,iproc) - planelim(ugrid,1,iproc) + 1
+
+  !   ! bandPL(iproc) = nband ! keeping this for now bc otherwise code will break but setting at a const
+
+  ! end do
+
+
+  ! ! limPL_incw: like old code – same as planelim but extend first/last proc by 1 plane
+  ! ! limPL_incw is like planelim but including first and last points that were previously removed.
+  ! !  It is only used in planes_to_modes_UVP, modes_to_planes_UVP, record_out and stats
+  ! limPL_excw = planelim
+
+  ! limPL_incw = planelim
+  ! limPL_incw(:,1,0   ) = planelim(:,1,0   ) - 1
+  ! limPL_incw(:,2,np-1) = planelim(:,2,np-1) + 1
+
+  ! igal = Ngal_x+2
+  ! kgal = Ngal_z
+
+
+  ! jgal(ugrid,1) = limPL_excw(ugrid,1,myid)
+  ! jgal(ugrid,2) = limPL_excw(ugrid,2,myid)
+  ! jgal(vgrid,1) = limPL_excw(vgrid,1,myid)
+  ! jgal(vgrid,2) = limPL_excw(vgrid,2,myid)
+  ! jgal(pgrid,1) = limPL_excw(pgrid,1,myid)
+  ! jgal(pgrid,2) = limPL_excw(pgrid,2,myid)
+
+  ! ! write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
+
+
+  ! if (myid == 0) then
+  !   do iproc = 0, np-1
+  !     write(6,*) "iproc", iproc, &
+  !               "nplanes", nplanes(iproc), &
+  !               "proc_load", proc_load(iproc)
+  !   end do
+  ! end if
+
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!  setting global variables !!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RNL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! Rank 0 computes plane ownership for all ranks (indexed by iproc)
+  ! then sends this info to the other procs who can access it 
+
+
+  if (myid ==0) then 
+
+    weight_tot = sum(weight)  
+    ideal_load = weight_tot / np
+
+    write(6,*) "weight_tot",weight_tot, "ideal_load", ideal_load
+    ! write(6,*) "weight(151)",weight(151), "weight(1)", weight(1)
+
+    jmin_plane(0) = jlow
+
+    !initialising values 
+    cumulative_load = 0.0d0
+    iproc = 0
+    j = jlow
+    ! proc_load = 0
+    ! nplanes   = 0
+
+    do while (iproc <= np-1)
+      if (j<= jupp) then 
+        cumulative_load = cumulative_load + weight(j)
+        if (cumulative_load >= ideal_load) then
+          ! ! default: cut at j
+          ! cut_plane = j
+          ! proc_load(iproc) = cumulative_load
+
+          cut_plane = j
+          proc_load(iproc) = cumulative_load
+
+          if (j > jmin_plane(iproc)) then
+            cumulative_load_2 = cumulative_load - weight(j)     ! load up to j-1
+            if (abs(cumulative_load_2 - ideal_load) < abs(proc_load(iproc) - ideal_load)) then
+              cut_plane = j-1
+              proc_load(iproc) = cumulative_load_2
+            end if
+          end if
+
+
+          !define max j fort hat proc and the no. planes 
+          jmax_plane(iproc) = cut_plane
+          nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
+          
+          ! if we get to last proc before all j planes are taken, fill the last proc with all remaining planes 
+          if (iproc == np-1) then
+            jmax_plane(iproc) = jupp
+            proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
+            exit
+          else
+            iproc = iproc + 1
+            jmin_plane(iproc) = cut_plane + 1
+          end if
+
+          cumulative_load = 0.0d0
+          j = cut_plane + 1
+          endproc = iproc   ! <-- the last filled proc index
+        else
+          j = j + 1
+        end if
+      else 
+        !if we get to top proc before all planes are filled... 
+        endproc = iproc   ! <-- the last filled proc index
+        jmax_plane(iproc) = jupp
+        proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
+        nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
+        do i = iproc+1, np-1
+          jmin_plane(i) = jupp + 1
+          jmax_plane(i) = jupp
+          proc_load(i)  = 0.0d0
+        end do
+        exit
+      end if 
+
+    end do
+
+    !!!!!!!!!!!!!!!!!!!!  redistributing planes w nothing.. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    ! takes one from each of the last n planes and shifts the planes and the weights 
+    ! this frees up n planes where one plane will be given to the remaining unloaded procs 
+    if (endproc < np-1) then 
+      startproc = endproc - (np-1 - endproc) +1
+      proc_load(startproc) = proc_load(startproc)-weight(jmax_plane(startproc))
+      jmax_plane(startproc) = jmax_plane(startproc) -1
+      
+      do i = startproc+1, endproc
+        proc_load(i) = 0 
+        nplanes(i) = nplanes(i)-1   
+        jmin_plane(i) = jmax_plane(i-1)+1
+        jmax_plane(i) = jmin_plane(i)+ nplanes(i) -1 !this minus 1 bc if start j = 110, then 3 planes is acc 110,111,112
+        do j =  jmin_plane(i), jmax_plane(i)
+          proc_load(i) = proc_load(i) + weight(j)
+        end do 
+      end do 
+
+      ! treatmeant of planes w. 0 load
+
+      do i = endproc+1, np-1  
+        jmin_plane(i) = jmax_plane(i-1) +1
+        jmax_plane(i) = jmin_plane(i)
+        proc_load(i) = weight(jmax_plane(i))
+      end do 
+
+    end if 
+
+  end if 
+
+  call MPI_BCAST(jmin_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(jmax_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(proc_load,  np, MPI_DOUBLE_PRECISION,   0, MPI_COMM_WORLD, ierr)
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!           RNL SPECIFIC         !!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   do iproc = 0, np-1
 
-    ! default: all grids use full j-range for this proc
+    ! default: all grids use full j-range 
     planelim(ugrid,1,iproc) = jmin_plane(iproc)
     planelim(ugrid,2,iproc) = jmax_plane(iproc)
 
@@ -1171,15 +1352,14 @@ subroutine proc_lims_planes(myid)
     if (iproc == 0) then
       planelim(pgrid,1,iproc) = jmin_plane(iproc) + 1
 
-    ! special case: last proc (shrink v and p by 1 at top)
-    else if (iproc == np-1) then
-      planelim(vgrid,2,iproc) = jmax_plane(iproc) - 1
-      planelim(pgrid,2,iproc) = jmax_plane(iproc) - 1
+    end if
+
+    ! special case: shift final u-grid by 1
+    if (iproc == np-1) then
+      planelim(ugrid,2,iproc) = jmax_plane(iproc) + 1
     end if
 
     nplanes(iproc) = planelim(ugrid,2,iproc) - planelim(ugrid,1,iproc) + 1
-
-    ! bandPL(iproc) = nband ! keeping this for now bc otherwise code will break but setting at a const
 
   end do
 
@@ -1204,7 +1384,7 @@ subroutine proc_lims_planes(myid)
   jgal(pgrid,1) = limPL_excw(pgrid,1,myid)
   jgal(pgrid,2) = limPL_excw(pgrid,2,myid)
 
-  ! write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
+  !write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
 
 
   if (myid == 0) then
@@ -1214,6 +1394,9 @@ subroutine proc_lims_planes(myid)
                 "proc_load", proc_load(iproc)
     end do
   end if
+
+  deallocate(jmin_plane, jmax_plane, nplanes, proc_load)
+
 
 
 end subroutine
