@@ -1,0 +1,12 @@
+3e-9/
+3e-9_nx32/
+
+*.o
+*.mod
+*.a
+*.so
+littleharsh
+output/
+fort.*
+scorep_*/
+*.out

@@ -159,8 +159,8 @@ nextqt = floor(t*10d0)/10d0+0.1d0
   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   ! MAIN LOOP 
-  do while (t<maxt) ! This is the original condition
-  ! do while (t<maxt .AND. iter <4)
+  ! do while (t<maxt) ! This is the original condition
+  do while (t<maxt .AND. iter <4)
     ! Runge-Kutta substeps
     do kRK = 1,3
     
@@ -189,14 +189,14 @@ nextqt = floor(t*10d0)/10d0+0.1d0
         write(6,*) "t=", MPI_Wtime() - t1,"Finished Nonlinear =====> Solving"
       end if 
 
-      ! Resolve the matricial system (FFT BANDS IMPLEMENTED)
-      ! call solveU(u1,du1,1,myid)
-      ! call solveV(u2,du2,2,myid)
-      ! call solveU(u3,du3,3,myid)
 
       ! Resolve the matricial system (NO FFT BANDS)
-      call solveU_W(u1,du1,u3,du3,a_ugrid,myid)
-      call solveV(u2,du2,a_vgrid,myid)
+    !   call solveU_W(u1,du1,u3,du3,a_ugrid,myid)
+    !   call solveV(u2,du2,a_vgrid,myid)
+
+      call solveU(u1,du1,ugrid,a_ugrid,myid) 
+      call solveU(u2,du2,vgrid,a_vgrid,myid) 
+      call solveU(u3,du3,ugrid,a_ugrid,myid) 
 
     !   if(myid==0) then
     !     write(6,*) "du1 after solve", du1(0,:)
@@ -855,78 +855,116 @@ subroutine divergence(div,u1,u2,u3,myid)
 
   end subroutine
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!  LU Solve's combined  !!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  
+  subroutine solveU(u,du,grid,a_grid,myid) !pass (u,du,w,dw)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  use declaration
+  ! use tridLU_3D
+
+  implicit none
+
+  integer i,k,j,iband,column,myid,grid
+  complex(8) :: u ( jlim(1,grid)      : jlim(2,grid),      columns_num(myid) )
+  complex(8) :: du( jlim(1,grid)      : jlim(2,grid),      columns_num(myid) )
+  real(8)  a_grid(3,jlim(1,grid):jlim(2,grid))
+
+      do column = 1,columns_num(myid)
+          i = columns_i(column,myid)
+          k = columns_k(column,myid)
+
+          du(jlim(1,grid),column) = 0d0
+
+          do j = jlim(1,grid)+1,jlim(2,grid)-1
+            du(j,column) = u(j,column)+dt*(du(j,column)) !For solving for u
+          end do
+
+          du(jlim(2,grid),column) = 0d0
+
+      end do
+
+      call LUsolU(u,du,a_grid(1:3,jlim(1,grid):jlim(2,grid)),grid,myid)
+
+  end subroutine
+
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!  NO FFT BANDS  !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-  subroutine solveU_W(u,du,w,dw,a_ugrid,myid) !pass (u,du,w,dw)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! subroutine solveU_W(u,du,w,dw,a_ugrid,myid) !pass (u,du,w,dw)
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  use declaration
-  ! use tridLU_3D
+  ! use declaration
+  ! ! use tridLU_3D
 
-  implicit none
+  ! implicit none
 
-  integer i,k,j,iband,column,myid
-  complex(8) :: u ( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
-  complex(8) :: w ( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
-  complex(8) :: du( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
-  complex(8) :: dw( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
-  real(8)  a_ugrid(3,jlim(1,ugrid):jlim(2,ugrid))
+  ! integer i,k,j,iband,column,myid
+  ! complex(8) :: u ( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
+  ! complex(8) :: w ( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
+  ! complex(8) :: du( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
+  ! complex(8) :: dw( jlim(1,ugrid)      : jlim(2,ugrid),      columns_num(myid) )
+  ! real(8)  a_ugrid(3,jlim(1,ugrid):jlim(2,ugrid))
 
-      do column = 1,columns_num(myid)
-          i = columns_i(column,myid)
-          k = columns_k(column,myid)
-          du(jlim(1,ugrid),column) = 0d0
-          dw(jlim(1,ugrid),column) = 0d0
+  !     do column = 1,columns_num(myid)
+  !         i = columns_i(column,myid)
+  !         k = columns_k(column,myid)
+  !         du(jlim(1,ugrid),column) = 0d0
+  !         dw(jlim(1,ugrid),column) = 0d0
 
-          do j = jlim(1,ugrid)+1,jlim(2,ugrid)-1
-          du(j,column) = u(j,column)+dt*(du(j,column)) !For solving for u
-          dw(j,column) = w(j,column)+dt*(dw(j,column)) !For solving for w
-          end do
+  !         do j = jlim(1,ugrid)+1,jlim(2,ugrid)-1
+  !         du(j,column) = u(j,column)+dt*(du(j,column)) !For solving for u
+  !         dw(j,column) = w(j,column)+dt*(dw(j,column)) !For solving for w
+  !         end do
 
-          du(jlim(2,ugrid),column) = 0d0
-          dw(jlim(2,ugrid),column) = 0d0
-      end do
+  !         du(jlim(2,ugrid),column) = 0d0
+  !         dw(jlim(2,ugrid),column) = 0d0
+  !     end do
 
-      ! they used to call immersed boundaries here !!!! how do we treat boundaries..? 
-      ! idk where to look fo smooth wall
+  !     ! they used to call immersed boundaries here !!!! how do we treat boundaries..? 
+  !     ! idk where to look fo smooth wall
 
-      call LUsolU_W(u,du,w,dw,a_ugrid(1:3,jlim(1,ugrid):jlim(2,ugrid)),ugrid,myid)
+  !     call LUsolU_W(u,du,w,dw,a_ugrid(1:3,jlim(1,ugrid):jlim(2,ugrid)),ugrid,myid)
 
-  end subroutine
+  ! end subroutine
 
-  subroutine solveV(u,du,a_vgrid,myid)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! subroutine solveV(u,du,a_vgrid,myid)
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-  use declaration
-  ! use tridLU_3D
-  implicit none
-  integer i,k,j,iband,column,myid
-  complex(8) :: u ( jlim(1,vgrid)      : jlim(2,vgrid),      columns_num(myid) )
-  complex(8) :: du( jlim(1,vgrid)      : jlim(2,vgrid),      columns_num(myid) )
-  real(8)    :: a_vgrid(3,jlim(1,vgrid):jlim(2,vgrid))
+  ! use declaration
+  ! ! use tridLU_3D
+  ! implicit none
+  ! integer i,k,j,iband,column,myid
+  ! complex(8) :: u ( jlim(1,vgrid)      : jlim(2,vgrid),      columns_num(myid) )
+  ! complex(8) :: du( jlim(1,vgrid)      : jlim(2,vgrid),      columns_num(myid) )
+  ! real(8)    :: a_vgrid(3,jlim(1,vgrid):jlim(2,vgrid))
 
-      do column = 1,columns_num(myid)
-          i = columns_i(column,myid)
-          k = columns_k(column,myid)
-          du(jlim(1,vgrid),column) = 0d0
-          do j = jlim(1,vgrid)+1,jlim(2,vgrid)-1
-          !         du%f(j,column) = dt*(du%f(j,column)) !For solving for du
-          du(j,column) = u(j,column)+dt*(du(j,column)) !For solving for u
-          end do
-          du(jlim(2,vgrid),column) = 0d0
-      end do
+  !     do column = 1,columns_num(myid)
+  !         i = columns_i(column,myid)
+  !         k = columns_k(column,myid)
+  !         du(jlim(1,vgrid),column) = 0d0
+  !         do j = jlim(1,vgrid)+1,jlim(2,vgrid)-1
+  !         !         du%f(j,column) = dt*(du%f(j,column)) !For solving for du
+  !         du(j,column) = u(j,column)+dt*(du(j,column)) !For solving for u
+  !         end do
+  !         du(jlim(2,vgrid),column) = 0d0
+  !     end do
 
-      call LUsolV(u,du,a_vgrid(1:3,jlim(1,vgrid):jlim(2,vgrid)),vgrid,myid)
+  !     call LUsolV(u,du,a_vgrid(1:3,jlim(1,vgrid):jlim(2,vgrid)),vgrid,myid)
 
-  end subroutine
+  ! end subroutine
 
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

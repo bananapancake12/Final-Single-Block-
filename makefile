@@ -7,12 +7,12 @@
 ########################     compiler     #########################
 
 #CSD3
-F90 = mpif90
-F77 = mpif90
+# F90 = mpif90
+# F77 = mpif90
 
 #WSL
-# F90 = mpiifx
-# F77 = mpiifx
+F90 = mpiifx
+F77 = mpiifx
 #F90 = $(BGP_SYS)/bin/mpixlf90
 #F77 = $(BGP_SYS)/bin/mpixlf77
 
