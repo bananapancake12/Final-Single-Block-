@@ -1570,6 +1570,8 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   call planes_to_modes_UVP(p ,ppPL,3,nyp,nyp_LB,myid,status,ierr)
   ! write(6,*) " finished pplanes to modes"
 
+  call reconstruct_u3(u3,u1,u2,myid)
+
   ! if(myid ==0) then 
   !   do j= 1, 22
   !     write(6,*) p%f(j,1)
@@ -1978,7 +1980,53 @@ subroutine read_in(myid)
     end do
     close(10)
 
-    !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    ! !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    ! fnameimb = trim(dirin)//'/u3'//filout
+    ! write(*,*) 'u3 from file ',trim(fnameimb),','
+    ! open(10,file=fnameimb,form='unformatted')
+    ! read(10)
+    ! read(10)
+    ! read(10)
+    ! ju1=jgal(2,1)-1
+    ! ju2=jgal(2,2)
+    ! ju1=max(ju1,N2(4,0))
+    ! do j=N2(4,0),ju1-1
+    !   read(10)
+    ! end do
+    ! do j=ju1,ju2
+    !   nx=nxxu(j)
+    !   nz=nzzu(j)
+    !   allocate(buffSR(nx,nz))
+    !   read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+    !   call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+    !   deallocate(buffSR)
+    !   if (nx/=nxin .or. nz/=nzin) then
+    !     write(*,*) 'WARNING!: unexpected size of plane',j
+    !   end if
+    ! end do
+    ! do iproc=1,np-1
+    !   ju1=planelim(2,1,iproc)
+    !   ju2=planelim(2,2,iproc)
+    !   if (planelim(2,2,iproc)==nyu) then
+    !     ju2=planelim(2,2,iproc)+1
+    !   end if
+    !   ju1=max(ju1,N2(4,0))
+    !   ju2=min(ju2,N2(4,3)+1)
+    !   do j=ju1,ju2
+    !     nx=nxxu(j)
+    !     nz=nzzu(j)
+    !     allocate(buffSR(nx,nz))
+    !     read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+    !     call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+    !     deallocate(buffSR)
+    !     if (nx/=nxin .or. nz/=nzin) then
+    !       write(*,*) 'WARNING!: unexpected size of plane',j
+    !     end if
+    !   end do
+    ! end do
+    ! close(10)
+    
+    !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
     fnameimb = trim(dirin)//'/u3'//filout
     write(*,*) 'u3 from file ',trim(fnameimb),','
     open(10,file=fnameimb,form='unformatted')
@@ -1995,10 +2043,11 @@ subroutine read_in(myid)
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+      buffSR(:,:) = 0
+      read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
       deallocate(buffSR)
-      if (nx/=nxin .or. nz/=nzin) then
+      if (nx/=nxin .or. nzin/=1) then
         write(*,*) 'WARNING!: unexpected size of plane',j
       end if
     end do
@@ -2014,15 +2063,19 @@ subroutine read_in(myid)
         nx=nxxu(j)
         nz=nzzu(j)
         allocate(buffSR(nx,nz))
-        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-        call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+        buffSR(:,:) = 0
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+        ! call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+        call MPI_SEND(buffSR(:,1), nx, MPI_REAL8, iproc, 125*iproc, MPI_COMM_WORLD, ierr)
         deallocate(buffSR)
-        if (nx/=nxin .or. nz/=nzin) then
+        if (nx/=nxin .or. nzin/=1) then
           write(*,*) 'WARNING!: unexpected size of plane',j
         end if
       end do
     end do
     close(10)
+    
+
 
     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
 
@@ -2159,8 +2212,11 @@ subroutine read_in(myid)
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
-      call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+      ! call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
+      ! call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+      buffSR(:,:) = 0d0
+      call MPI_RECV(buffSR(:,1), nx, MPI_REAL8, 0, 125*myid, MPI_COMM_WORLD, status, ierr)
+      call buff_to_u(u3PL(1,1,j), buffSR, nx, nz, igal, kgal)
       deallocate(buffSR)
     end do
     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
@@ -2178,6 +2234,39 @@ subroutine read_in(myid)
   !write(*,*) 'finished read in'
 
 end subroutine
+
+subroutine reconstruct_u3(u3,u1,u2,myid)
+  use declaration
+  implicit none
+
+  integer :: myid
+  integer :: column, i, k, j
+  complex(8) :: kx, kzF
+  complex(8), allocatable :: du2dy(:,:)
+  complex(8) :: u1( jlim(1,ugrid) : jlim(2,ugrid), columns_num(myid) )
+  complex(8) :: u2( jlim(1,vgrid) : jlim(2,vgrid), columns_num(myid) )
+  complex(8) :: u3( jlim(1,ugrid) : jlim(2,ugrid), columns_num(myid) )
+
+  allocate(du2dy(jlim(1,ugrid)+1:jlim(2,ugrid)-1,columns_num(myid)))
+
+  ! reconstruct u3 from continuity, each processor reconstructs their own planes
+  ! reconstructed is only calculated from div.u =0 on the internal grid points 
+  call der_yu_h(du2dy,u2,myid)  
+
+  do column = 1,columns_num(myid)
+    i   = columns_i(column,myid)
+    k   = columns_k(column,myid)
+    kx  = k1F_x(i)  ! im*kx
+    kzF = k1F_z(k)  ! im*kz
+
+    if (kzF /= 0) then 
+      do j = jlim(1,ugrid)+1,jlim(2,ugrid)-1
+        u3(j,column) = (-kx*u1(j,column) - du2dy(j,column)) / kzF
+      end do 
+    end if 
+  end do 
+
+end subroutine 
 
 
 

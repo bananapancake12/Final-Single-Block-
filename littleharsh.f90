@@ -160,7 +160,7 @@ nextqt = floor(t*10d0)/10d0+0.1d0
 
   ! MAIN LOOP 
   ! do while (t<maxt) ! This is the original condition
-  do while (t<maxt .AND. iter <4)
+  do while (t<maxt .AND. iter <8)
     ! Runge-Kutta substeps
     do kRK = 1,3
     

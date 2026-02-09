@@ -2113,7 +2113,34 @@ subroutine record_out(u1,myid)
       deallocate(buffSR)
       end do
       close(10)
-      !!!!!!!!!!!!!    u3    !!!!!!!!!!!!!
+
+      ! !!!!!!!!!!!!!   Original u3    !!!!!!!!!!!!!
+      ! fnameima = 'output/u3_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
+      ! open(10,file=fnameima,form='unformatted')
+      ! write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
+      ! write(10) N
+      ! write(10) yu,ddthetavi,dthdyu
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
+      ! call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
+      ! write(10) j,3,nx,nz,yu(j),buffSR
+      ! end do
+      ! deallocate(buffSR)
+      ! do iproc = 1,np-1
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(ugrid,1,iproc),limPL_incw(ugrid,2,iproc)
+      !     call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,status,ierr)
+      !     write(10) j,3,nx,nz,yu(j),buffSR
+      ! end do
+      ! deallocate(buffSR)
+      ! end do
+      ! close(10)
+
+      !!!!!!!!!!!!!   NEW u3    !!!!!!!!!!!!!
       fnameima = 'output/u3_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
       open(10,file=fnameima,form='unformatted')
       write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
@@ -2124,7 +2151,7 @@ subroutine record_out(u1,myid)
       allocate(buffSR(nx,nz))
       do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
       call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
-      write(10) j,3,nx,nz,yu(j),buffSR
+      write(10) j,3,nx,1,yu(j),buffSR(:,1)
       end do
       deallocate(buffSR)
       do iproc = 1,np-1
@@ -2133,7 +2160,7 @@ subroutine record_out(u1,myid)
       allocate(buffSR(nx,nz))
       do j = limPL_incw(ugrid,1,iproc),limPL_incw(ugrid,2,iproc)
           call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,status,ierr)
-          write(10) j,3,nx,nz,yu(j),buffSR
+          write(10) j,3,nx,1,yu(j),buffSR(:,1)
       end do
       deallocate(buffSR)
       end do
