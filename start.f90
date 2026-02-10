@@ -1570,7 +1570,9 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   call planes_to_modes_UVP(p ,ppPL,3,nyp,nyp_LB,myid,status,ierr)
   ! write(6,*) " finished pplanes to modes"
 
-  call reconstruct_u3(u3,u1,u2,myid)
+  if (recv_flg ==1) then
+    call reconstruct_u3(u3,u1,u2,myid)
+  end if 
 
   ! if(myid ==0) then 
   !   do j= 1, 22
@@ -1745,7 +1747,7 @@ subroutine read_in(myid)
   include 'mpif.h'             ! MPI variables
   integer status(MPI_STATUS_SIZE),ierr,myid
   integer nx,nz,nxin,nzin,nband2
-  integer j,jin,iproc,dummI,ju1,ju2,jv1,jv2,jp1,jp2, i 
+  integer j,jin,iproc,dummI,ju1,ju2,jv1,jv2,jp1,jp2,i
   real(8) dummRe,Re2,alp2,bet2
   real(8), allocatable:: buffSR(:,:),dumm_y(:)
   integer, allocatable:: dummint(:),N2(:,:)
@@ -2045,34 +2047,63 @@ subroutine read_in(myid)
       allocate(buffSR(nx,nz))
       buffSR(:,:) = 0
       read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+      if (j == ju1) then
+        recv_flg = merge(1, 0, nzin == 1)
+        call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      end if
+
       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
       deallocate(buffSR)
-      if (nx/=nxin .or. nzin/=1) then
+    end do
+    if (nzin == 1)  then
+      do iproc=1,np-1
+        ju1=planelim(2,1,iproc)
+        ju2=planelim(2,2,iproc)
+        if (planelim(2,2,iproc)==nyu) then
+          ju2=planelim(2,2,iproc)+1
+        end if
+        ju1=max(ju1,N2(4,0))
+        ju2=min(ju2,N2(4,3)+1)
+        do j=ju1,ju2
+          nx=nxxu(j)
+          nz=nzzu(j)
+          allocate(buffSR(nx,nz))
+          buffSR(:,:) = 0
+          read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+          ! call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+          call MPI_SEND(buffSR(:,1), nx, MPI_REAL8, iproc, 125*iproc, MPI_COMM_WORLD, ierr)
+          deallocate(buffSR)
+          if (nx/=nxin .or. nzin/=1) then
+            write(*,*) 'WARNING!: unexpected size of plane',j
+          end if
+        end do
+      end do
+    else 
+      if (nx/=nxin .or. nz/=nzin) then
         write(*,*) 'WARNING!: unexpected size of plane',j
       end if
-    end do
-    do iproc=1,np-1
-      ju1=planelim(2,1,iproc)
-      ju2=planelim(2,2,iproc)
-      if (planelim(2,2,iproc)==nyu) then
-        ju2=planelim(2,2,iproc)+1
-      end if
-      ju1=max(ju1,N2(4,0))
-      ju2=min(ju2,N2(4,3)+1)
-      do j=ju1,ju2
-        nx=nxxu(j)
-        nz=nzzu(j)
-        allocate(buffSR(nx,nz))
-        buffSR(:,:) = 0
-        read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
-        ! call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
-        call MPI_SEND(buffSR(:,1), nx, MPI_REAL8, iproc, 125*iproc, MPI_COMM_WORLD, ierr)
-        deallocate(buffSR)
-        if (nx/=nxin .or. nzin/=1) then
-          write(*,*) 'WARNING!: unexpected size of plane',j
+      do iproc=1,np-1
+        ju1=planelim(2,1,iproc)
+        ju2=planelim(2,2,iproc)
+        if (planelim(2,2,iproc)==nyu) then
+          ju2=planelim(2,2,iproc)+1
         end if
+        ju1=max(ju1,N2(4,0))
+        ju2=min(ju2,N2(4,3)+1)
+        do j=ju1,ju2
+          nx=nxxu(j)
+          nz=nzzu(j)
+          allocate(buffSR(nx,nz))
+          read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+          call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+          deallocate(buffSR)
+          if (nx/=nxin .or. nz/=nzin) then
+            write(*,*) 'WARNING!: unexpected size of plane',j
+          end if
+        end do
       end do
-    end do
+    end if 
     close(10)
     
 
@@ -2208,15 +2239,22 @@ subroutine read_in(myid)
       deallocate(buffSR)
     end do
     !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
     do j=ju1,ju2
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      ! call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
-      ! call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
-      buffSR(:,:) = 0d0
-      call MPI_RECV(buffSR(:,1), nx, MPI_REAL8, 0, 125*myid, MPI_COMM_WORLD, status, ierr)
-      call buff_to_u(u3PL(1,1,j), buffSR, nx, nz, igal, kgal)
+
+      if (recv_flg == 1) then
+        buffSR(:,:) = 0d0
+        call MPI_RECV(buffSR(:,1), nx, MPI_REAL8, 0, 125*myid, MPI_COMM_WORLD, status, ierr)
+        call buff_to_u(u3PL(1,1,j), buffSR, nx, nz, igal, kgal)
+      else 
+        call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
+        call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+      end if 
+  
       deallocate(buffSR)
     end do
     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
@@ -2259,11 +2297,17 @@ subroutine reconstruct_u3(u3,u1,u2,myid)
     kx  = k1F_x(i)  ! im*kx
     kzF = k1F_z(k)  ! im*kz
 
-    if (kzF /= 0) then 
+        ! reconstructing internal points
+    if (abs(kzF) > 1d-12) then
+    ! if (kzF /= 0) then
       do j = jlim(1,ugrid)+1,jlim(2,ugrid)-1
         u3(j,column) = (-kx*u1(j,column) - du2dy(j,column)) / kzF
-      end do 
-    end if 
+      end do
+    end if
+
+    ! reconstructing ghost points
+    u3(jlim(1,ugrid),column) = -gridweighting(1) * u3(jlim(1,ugrid)+1,column)
+    u3(jlim(2,ugrid),column) = -gridweighting(2) * u3(jlim(2,ugrid)-1,column)
   end do 
 
 end subroutine 

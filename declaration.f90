@@ -39,6 +39,7 @@ module declaration
   integer, allocatable :: dk_phys(:,:)
 
   integer(8), allocatable :: weight(:)
+  integer recv_flg
 
   real(8) :: t1
 
