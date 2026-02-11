@@ -2053,10 +2053,10 @@ subroutine record_out(u1,myid)
       call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
       call MPI_SEND(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,ierr)
       end do
-      do j = limPL_incw(pgrid,1,myid),limPL_incw(pgrid,2,myid)
-      call u_to_buff(buffSR,ppPL(1,1,j),nx,nz,igal,kgal)
-      call MPI_SEND(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,ierr)
-      end do
+      ! do j = limPL_incw(pgrid,1,myid),limPL_incw(pgrid,2,myid)
+      ! call u_to_buff(buffSR,ppPL(1,1,j),nx,nz,igal,kgal)
+      ! call MPI_SEND(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,ierr)
+      ! end do
 
       deallocate(buffSR)
   else
@@ -2165,32 +2165,32 @@ subroutine record_out(u1,myid)
       deallocate(buffSR)
       end do
       close(10)
-      !!!!!!!!!!!!!    p     !!!!!!!!!!!!!
-      fnameima = 'output/p_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
-      open(10,file=fnameima,form='unformatted')
-      write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
-      write(10) N
-      write(10) yu,ddthetavi,dthdyu
-      nx = Nspec_x+2
-      nz = Nspec_z
-      allocate(buffSR(nx,nz))
-      do j = limPL_incw(pgrid,1,myid),limPL_incw(pgrid,2,myid)
-      call u_to_buff(buffSR,ppPL(1,1,j),nx,nz,igal,kgal)
-      write(10) j,4,nx,nz,yu(j),buffSR
-      end do
-      deallocate(buffSR)
-      do iproc = 1,np-1
-      nx = Nspec_x+2
-      nz = Nspec_z
-      allocate(buffSR(nx,nz))
-      do j = limPL_incw(pgrid,1,iproc),limPL_incw(pgrid,2,iproc)
-          call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,status,ierr)
-          write(10) j,4,nx,nz,yu(j),buffSR
-      end do
-      deallocate(buffSR)
-      end do
-      close(10)
-      deallocate(dummint)
+      ! !!!!!!!!!!!!!    p     !!!!!!!!!!!!!
+      ! fnameima = 'output/p_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
+      ! open(10,file=fnameima,form='unformatted')
+      ! write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
+      ! write(10) N
+      ! write(10) yu,ddthetavi,dthdyu
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(pgrid,1,myid),limPL_incw(pgrid,2,myid)
+      ! call u_to_buff(buffSR,ppPL(1,1,j),nx,nz,igal,kgal)
+      ! write(10) j,4,nx,nz,yu(j),buffSR
+      ! end do
+      ! deallocate(buffSR)
+      ! do iproc = 1,np-1
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(pgrid,1,iproc),limPL_incw(pgrid,2,iproc)
+      !     call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,status,ierr)
+      !     write(10) j,4,nx,nz,yu(j),buffSR
+      ! end do
+      ! deallocate(buffSR)
+      ! end do
+      ! close(10)
+      ! deallocate(dummint)
   end if
 
   if (myid==0) then

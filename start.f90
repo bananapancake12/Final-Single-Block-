@@ -1562,6 +1562,8 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
 
   write(6,*) " Calling read in"
   call read_in(myid)
+
+  ppPL = 0
   
   ! write(6,*) " start planes to modes"
   call planes_to_modes_UVP(u1,u1PL,2,nyu,nyu_LB,myid,status,ierr)
@@ -1569,6 +1571,8 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   call planes_to_modes_UVP(u3,u3PL,2,nyu,nyu_LB,myid,status,ierr)
   call planes_to_modes_UVP(p ,ppPL,3,nyp,nyp_LB,myid,status,ierr)
   ! write(6,*) " finished pplanes to modes"
+
+  
 
   if (recv_flg ==1) then
     call reconstruct_u3(u3,u1,u2,myid)
@@ -2108,64 +2112,64 @@ subroutine read_in(myid)
     
 
 
-    !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+!     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
 
-    fnameimb = trim(dirin)//'/p'//filout
-    write(*,*) 'and p from file ',trim(fnameimb),','
-    open(10,file=fnameimb,form='unformatted')
-    read(10)
-    read(10)
-    read(10)
-    jp1=jgal(3,1)-1
-    jp2=jgal(3,2)
+!     fnameimb = trim(dirin)//'/p'//filout
+!     write(*,*) 'and p from file ',trim(fnameimb),','
+!     open(10,file=fnameimb,form='unformatted')
+!     read(10)
+!     read(10)
+!     read(10)
+!     jp1=jgal(3,1)-1
+!     jp2=jgal(3,2)
 
     
-    !if(myid ==0) then 
-    ! write (6,*) "jp1", jp1, "jp2", jp2, "jgal(3,1)", jgal(3,1), myid 
-    !end if 
+!     !if(myid ==0) then 
+!     ! write (6,*) "jp1", jp1, "jp2", jp2, "jgal(3,1)", jgal(3,1), myid 
+!     !end if 
 
-    jp1=max(jp1,N2(4,0)+1)
-    do j=N2(4,0)+1,jp1-1
-      read(10)
-    end do
-    do j=jp1,jp2
-      nx=nxxp(j)
-      nz=nzzp(j)
-      allocate(buffSR(nx,nz))
-      read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-      call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
-      !write(6,*) "ppPL", ppPL(1,1,j), j 
-      deallocate(buffSR)
-      if (nx/=nxin .or. nz/=nzin) then
-        write(*,*) 'WARNING!: unexpected size of plane',j
-      end if
-    end do
-    do iproc=1,np-1
-      jp1=planelim(3,1,iproc)
-      jp2=planelim(3,2,iproc)
-      if (planelim(3,2,iproc)==nyu-1.and.iproc==np-1) then
-        jp2=planelim(3,2,iproc)+1
-      end if
-      jp1=max(jp1,N2(4,0)+1)
-      jp2=min(jp2,N2(4,3)+1-1)
-!jp2=min(jp2,N2(4,nband)+1-1-1)
-      do j=jp1,jp2
-        nx=nxxp(j)
-        nz=nzzp(j)
-        allocate(buffSR(nx,nz))
-        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-        call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,ierr)
-        deallocate(buffSR)
-        if (nx/=nxin .or. nz/=nzin) then
-          write(*,*) 'WARNING!: unexpected size of plane',j
-        end if
-      end do
-    end do
-    close(10)
-    write(*,*) ''
+!     jp1=max(jp1,N2(4,0)+1)
+!     do j=N2(4,0)+1,jp1-1
+!       read(10)
+!     end do
+!     do j=jp1,jp2
+!       nx=nxxp(j)
+!       nz=nzzp(j)
+!       allocate(buffSR(nx,nz))
+!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!       call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       !write(6,*) "ppPL", ppPL(1,1,j), j 
+!       deallocate(buffSR)
+!       if (nx/=nxin .or. nz/=nzin) then
+!         write(*,*) 'WARNING!: unexpected size of plane',j
+!       end if
+!     end do
+!     do iproc=1,np-1
+!       jp1=planelim(3,1,iproc)
+!       jp2=planelim(3,2,iproc)
+!       if (planelim(3,2,iproc)==nyu-1.and.iproc==np-1) then
+!         jp2=planelim(3,2,iproc)+1
+!       end if
+!       jp1=max(jp1,N2(4,0)+1)
+!       jp2=min(jp2,N2(4,3)+1-1)
+! !jp2=min(jp2,N2(4,nband)+1-1-1)
+!       do j=jp1,jp2
+!         nx=nxxp(j)
+!         nz=nzzp(j)
+!         allocate(buffSR(nx,nz))
+!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,ierr)
+!         deallocate(buffSR)
+!         if (nx/=nxin .or. nz/=nzin) then
+!           write(*,*) 'WARNING!: unexpected size of plane',j
+!         end if
+!       end do
+!     end do
+!     close(10)
+!     write(*,*) ''
 
-    deallocate(nxxu,nzzu,nxxv,nzzv,nxxp,nzzp)
-    deallocate(N2)
+!     deallocate(nxxu,nzzu,nxxv,nzzv,nxxp,nzzp)
+!     deallocate(N2)
 
   else
 
@@ -2257,17 +2261,17 @@ subroutine read_in(myid)
   
       deallocate(buffSR)
     end do
-    !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
-    do j=jp1,jp2
-      nx=nxxu(j)
-      nz=nzzu(j)
-      allocate(buffSR(nx,nz))
-      call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,status,ierr)
-      call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
-      deallocate(buffSR)
-    end do
-    deallocate(nxxu,nzzu,nxxv,nzzv)
-    deallocate(N2)
+    ! !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+    ! do j=jp1,jp2
+    !   nx=nxxu(j)
+    !   nz=nzzu(j)
+    !   allocate(buffSR(nx,nz))
+    !   call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,status,ierr)
+    !   call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+    !   deallocate(buffSR)
+    ! end do
+    ! deallocate(nxxu,nzzu,nxxv,nzzv)
+    ! deallocate(N2)
   end if
   !write(*,*) 'finished read in'
 
