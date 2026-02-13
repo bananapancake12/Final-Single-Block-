@@ -153,4 +153,74 @@ module declaration
 
   integer, allocatable:: iLkup(:), kLkup(:), iNeg(:)
 
+
+
+  !!!!!!!!!!!!!!      TRD_v2 New variables     !!!!!!!!!!!!!!!!!
+  integer :: nxf, nzf, nyf                 
+  integer :: nx_trd, nz_trd, nnc                   
+  integer :: nfib                          
+
+  integer :: MoINumX, MoINumZ, MoINumt     ! sizes
+
+  integer, allocatable :: NXlim(:,:), NZlim(:,:)   
+  real(8), allocatable :: NXfib(:), NZfib(:)       
+  integer, allocatable :: NXoI(:),  NZoI(:)        
+
+  integer :: PLoINum, PLoINumEx, inoutunit
+  integer, allocatable :: NYoI(:)                 
+  real(8), allocatable :: yPLoi(:)               
+  integer, allocatable :: jList_Buff(:)     
+  integer, allocatable :: buffIndj(:)   
+  real(8) :: Re_tau
+
+
+ type PLj
+      integer :: j
+      type(PLj), pointer :: next
+  end type PLj
+
+  type CtrMod
+    integer :: RIndC
+    integer :: nsub
+    integer, allocatable :: ni(:), nk(:)
+    integer, allocatable :: CC(:)
+    integer, allocatable :: RInd(:)
+  end type CtrMod
+
+  type Mxz
+    integer :: NXoI, NZoI
+    type(CtrMod), allocatable :: SubMatA, SubMatB
+  end type Mxz
+
+  type(Mxz), allocatable :: indMoI(:,:)   ! (MoINumX, 2*MoINumZ)
+  !real(8), allocatable :: u1_ind(:,:), u2_ind(:,:), u3_ind(:,:)
+
+
+  ! === TRD work arrays ===
+  real(8), allocatable :: RBf_u1(:,:,:), RBf_u2(:,:,:), RBf_u3(:,:,:), RBf_pr(:,:,:)
+  real(8), allocatable :: u1pl_tmp(:), u2pl_tmp(:), u3pl_tmp(:)
+  real(8), allocatable :: s1pl_tmp(:), s2pl_tmp(:), s3pl_tmp(:)
+
+
+  real(8), allocatable :: u1A_Re(:), u1A_Im(:), s1A_Re(:), s1A_Im(:)
+  real(8), allocatable :: u2A_Re(:), u2A_Im(:), s2A_Re(:), s2A_Im(:)
+  real(8), allocatable :: u3A_Re(:), u3A_Im(:), s3A_Re(:), s3A_Im(:)
+
+  real(8), allocatable :: u1B_Re(:), u1B_Im(:)
+  real(8), allocatable :: u2B_Re(:), u2B_Im(:), s2B_Re(:), s2B_Im(:)
+  real(8), allocatable :: u3B_Re(:), u3B_Im(:)
+
+  real(8), allocatable :: ka_x(:), ka_z(:)
+
+  real(8), allocatable :: convs_uu(:,:,:,:,:,:), convs_uv(:,:,:,:,:,:), convs_uw(:,:,:,:,:,:)
+  real(8), allocatable :: convs_vu(:,:,:,:,:,:), convs_vv(:,:,:,:,:,:), convs_vw(:,:,:,:,:,:)
+  real(8), allocatable :: convs_wu(:,:,:,:,:,:), convs_wv(:,:,:,:,:,:), convs_ww(:,:,:,:,:,:)
+
+  real(8), allocatable :: buff_fold(:,:,:,:,:), buff_fib(:,:,:,:)
+
+  real(8), allocatable :: buff_Re(:,:), buff_Im(:,:), buff_EP(:,:,:)
+
+
+
+
 end module

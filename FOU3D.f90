@@ -237,7 +237,7 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
   end if
 
   !!!!!!!!! four to ops: !!!!!!!!!
-  call ops_in_planes(myid,flagst) !C! ops in planes to compute velocity products and x/z derriatives
+  call ops_in_planes2(myid,flagst) !C! ops in planes to compute velocity products and x/z derriatives
 
   if(myid==0) then
     write(6,*) "t=", MPI_Wtime() - t1, "=====> Planes to modes UVP"
@@ -2347,3 +2347,406 @@ subroutine buff_to_u(u,buffSR,nx,nz,igal,kgal)
   end do
 
 end subroutine
+
+subroutine record_map(myid)
+
+  use declaration
+  implicit none 
+  include 'mpif.h'
+  integer status(MPI_STATUS_SIZE),ierr,myid
+  
+  integer :: j, i, k, NRplxz
+
+
+  real(8), allocatable :: u1_ind(:,:), u2_ind(:,:), u3_ind(:,:)
+  integer, parameter :: LowChn = 1, UppChn = 2
+  integer :: whiChn
+
+  integer :: it_moi, jpl, jbf
+  integer :: k_ind, IkkcNeg
+  integer :: ric, ncs
+  integer :: Ntx, Ntz, f, s
+
+  integer :: ii, kk, ind, sigCase
+  integer :: NxUpp, NzUpp
+  integer :: buffInt   ! if you use merge() with 1d0 below
+  integer :: nsamp, isamp
+
+  integer :: xlim(4), zlim(4)
+
+  real(8) :: kc_x, kc_z
+  real(8) :: u1C_Re, u1C_Im
+  real(8) :: u2C_Re, u2C_Im
+  real(8) :: u3C_Re, u3C_Im
+
+  integer :: icsub, iia, kka, iib, kkb
+  integer :: IkkNeg, IiiNeg
+  character(len=3)  :: extnkx, extnkz, extny, extmod
+  character(len=256):: fnameList
+  character(len=256):: output, map_output
+
+
+  NRplxz = (Nspec_x+2) * Nspec_z
+  Ntx = Nspec_x
+  Ntz = Nspec_z
+
+
+  allocate(u1_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(u2_ind(NRplxz, jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(u3_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+
+  convs_uu = 0.0d0
+  convs_uv = 0.0d0
+  convs_uw = 0.0d0
+  convs_vu = 0.0d0
+  convs_vv = 0.0d0
+  convs_vw = 0.0d0
+  convs_wu = 0.0d0
+  convs_wv = 0.0d0
+  convs_ww = 0.0d0
+
+
+  ! reshaping the array to match the indexing 
+
+  do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
+    do k = 1, Nspec_z
+      do i = 1, Nspec_x+2
+        u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k,j)
+        u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k,j)
+      end do
+    end do
+  end do
+
+  do j = jgal(vgrid,1)-1, jgal(vgrid,2)+1
+    do k = 1, Nspec_z
+      do i = 1, Nspec_x+2
+        u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k,j)
+      end do
+    end do
+  end do
+
+  ! i = 27
+  ! k = 5
+  ! write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
+  ! write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
+
+  if (myid == 0) then
+    write(*,*) "CHECK Ntz =", Ntz, "  Ntz/2-1 =", Ntz/2-1
+    write(*,*) "max |nk| =", maxval(abs(indMoI(i,k)%SubMatA%nk(:)))
+  end if
+
+
+
+
+  ! ---- Calculating and writing ----
+  write(*,*) 'Calculating and writing'
+
+  Do whiChn = LowChn, UppChn
+    it_moi = 0
+    do jpl = 1, PLoINum
+      if (whiChn == LowChn) then
+          write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
+      else
+          write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Upper channel: Plane #', jpl, 'of', PLoINum
+      end if
+  
+      j   = NYoI(jpl)
+      jbf = buffIndj(jpl)
+      !Storing u, v, w and the d/dy for that plane
+      u1pl_tmp =   RBf_u1(:,jbf  ,whiChn)
+      s1pl_tmp = ( RBf_u1(:,jbf+1,whiChn) - RBf_u1(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      u2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
+                & + RBf_u2(:,jbf-1,whiChn) * (yv(j  )-yu(j)) ) / (yv(j)-yv(j-1))
+      s2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) - RBf_u2(:,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
+      u3pl_tmp =   RBf_u3(:,jbf  ,whiChn)
+      s3pl_tmp = ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+
+
+      do i = 1, MoINumX
+        do k = 1, 2*MoINumZ
+          ! if (mod(k, 2) == 1) cycle !!!!!!!!!!!!!!!!!!!!!!!!!
+          
+          it_moi = it_moi + 1
+          k_ind = (k + 1) / 2
+          IkkcNeg = 1-mod(k,2)
+          ! write(*,"(8X,A6,I3,1X,A2,1X,I3)") 'mode #', (i-1)*MoINumZ*2+k, 'of', MoINumX*2*MoINumZ
+          ric    = indMoI(i,k)%SubMatA%RIndC
+          kc_x   = indMoI(i,k)%NXoI * alp
+          kc_z   = indMoI(i,k)%NZoI * bet
+
+          u1C_Re = u1pl_tmp(ric  )
+          u1C_Im = u1pl_tmp(ric+1)
+          u2C_Re = u2pl_tmp(ric  )
+          u2C_Im = u2pl_tmp(ric+1)
+          u3C_Re = u3pl_tmp(ric  )
+          u3C_Im = u3pl_tmp(ric+1)
+
+          xlim(1:4) = [Ntx/2-1, Ntx/2-1-i, Ntx/2-1-i, Ntx/2-1]
+          zlim(1:4) = [Ntz/2-1, Ntz/2-1, Ntz/2-1 - k_ind,Ntz/2-1 - k_ind]
+
+          ncs           =           indMoI(i,k)%SubMatA%nsub
+          ka_x(  1:ncs) = alp *     indMoI(i,k)%SubMatA%ni(  :)
+          ka_z(  1:ncs) = bet *     indMoI(i,k)%SubMatA%nk(  :)
+          u1A_Re(1:ncs) = u1pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          u1A_Im(1:ncs) = u1pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :) ! -kx terms: conjugate of +kx
+          s1A_Re(1:ncs) = s1pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          s1A_Im(1:ncs) = s1pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :)
+          u2A_Re(1:ncs) = u2pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          u2A_Im(1:ncs) = u2pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :)
+          s2A_Re(1:ncs) = s2pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          s2A_Im(1:ncs) = s2pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :)
+          u3A_Re(1:ncs) = u3pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          u3A_Im(1:ncs) = u3pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :)
+          s3A_Re(1:ncs) = s3pl_tmp( indMoI(i,k)%SubMatA%RInd(:)   )
+          s3A_Im(1:ncs) = s3pl_tmp( indMoI(i,k)%SubMatA%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatA%CC(  :)
+      
+          u1B_Re(1:ncs) = u1pl_tmp( indMoI(i,k)%SubMatB%RInd(:)   )
+          u1B_Im(1:ncs) = u1pl_tmp( indMoI(i,k)%SubMatB%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatB%CC(  :)
+          u2B_Re(1:ncs) = u2pl_tmp( indMoI(i,k)%SubMatB%RInd(:)   )
+          u2B_Im(1:ncs) = u2pl_tmp( indMoI(i,k)%SubMatB%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatB%CC(  :)
+          s2B_Re(1:ncs) = s2pl_tmp( indMoI(i,k)%SubMatB%RInd(:)   )
+          s2B_Im(1:ncs) = s2pl_tmp( indMoI(i,k)%SubMatB%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatB%CC(  :)
+          u3B_Re(1:ncs) = u3pl_tmp( indMoI(i,k)%SubMatB%RInd(:)   )
+          u3B_Im(1:ncs) = u3pl_tmp( indMoI(i,k)%SubMatB%RInd(:)+1 ) &
+                      & *           indMoI(i,k)%SubMatB%CC(  :)
+
+          allocate(buff_EP(3,2,ncs), buff_Re(3,ncs), buff_Im(3,ncs))
+
+
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! calculate advection term for uu, uv, uw !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          ! life would be better if people labelled things consistently- uu, vu, wu in the eqn -__- 
+          buff_Re(1,1:ncs) = ( u1B_Im(1:ncs)*u1A_Re(1:ncs) + u1B_Re(1:ncs)*u1A_Im(1:ncs) ) * kc_x
+          buff_Im(1,1:ncs) = ( u1B_Im(1:ncs)*u1A_Im(1:ncs) - u1B_Re(1:ncs)*u1A_Re(1:ncs) ) * kc_x
+          buff_Re(2,1:ncs) = - u2B_Re(1:ncs)*s1A_Re(1:ncs) + u2B_Im(1:ncs)*s1A_Im(1:ncs) &
+                              & - s2B_Re(1:ncs)*u1A_Re(1:ncs) + s2B_Im(1:ncs)*u1A_Im(1:ncs)
+          buff_Im(2,1:ncs) = - u2B_Re(1:ncs)*s1A_Im(1:ncs) - u2B_Im(1:ncs)*s1A_Re(1:ncs) &
+                              & - s2B_Re(1:ncs)*u1A_Im(1:ncs) - s2B_Im(1:ncs)*u1A_Re(1:ncs)
+          buff_Re(3,1:ncs) = ( u3B_Im(1:ncs)*u1A_Re(1:ncs) + u3B_Re(1:ncs)*u1A_Im(1:ncs) ) * kc_z
+          buff_Im(3,1:ncs) = ( u3B_Im(1:ncs)*u1A_Im(1:ncs) - u3B_Re(1:ncs)*u1A_Re(1:ncs) ) * kc_z
+
+
+
+          buff_EP(:,1,1:ncs) = buff_Re(:,1:ncs)*u1C_Re                           + buff_Im(:,1:ncs)*u1C_Im
+          buff_EP(:,2,1:ncs) = buff_Re(:,1:ncs)*u1C_Re/sqrt(u1C_Re**2+u1C_Im**2) + &
+                              & buff_Im(:,1:ncs)*u1C_Im/sqrt(u1C_Re**2+u1C_Im**2)
+      
+
+          buff_fold = 0
+
+          do icsub = 1, ncs
+              iia = indMoI(i,k)%SubMatA%ni(  icsub) 
+              kka = indMoI(i,k)%SubMatA%nk(  icsub) 
+              kka = kka*(1-2*IkkcNeg)
+              IkkNeg = (1 - max(isign(1,kka),0))*2
+              IiiNeg = 1 - max(isign(1,iia),0)
+              sigCase = 1+IkkNeg + IiiNeg ! 1: (+,+), 2: (-,+), 3: (+,-), 4: (-,-)
+              buff_fold(:,1,sigCase, abs(iia),abs(kka)) = buff_fold(:,1,sigCase, abs(iia),abs(kka)) + buff_EP(:,1, icsub)
+              buff_fold(:,3,sigCase, abs(iia),abs(kka)) = buff_fold(:,3,sigCase, abs(iia),abs(kka)) + buff_EP(:,2, icsub)
+              ! if (mod(icsub,12)==0) then
+              !     write(*,*) iia, kka, sigCase
+              ! end if
+
+              iib = indMoI(i,k)%SubMatB%ni(  icsub) 
+              kkb = indMoI(i,k)%SubMatB%nk(  icsub) 
+              kkb = kkb*(1-2*IkkcNeg)
+              IkkNeg = (1 - max(isign(1,kkb),0))*2
+              IiiNeg = 1 - max(isign(1,iib),0)
+              sigCase = 1+IkkNeg + IiiNeg
+              buff_fold(:,2,sigCase, abs(iib),abs(kkb)) = buff_fold(:,2,sigCase, abs(iib),abs(kkb)) + buff_EP(:,1, icsub)
+              buff_fold(:,4,sigCase, abs(iib),abs(kkb)) = buff_fold(:,4,sigCase, abs(iib),abs(kkb)) + buff_EP(:,2, icsub)       
+          end do
+          buff_fold(:,:,1,NXoI(i), NZoI(k_ind)) = 0.0d0
+
+          do ii = 1, MoINumX
+              do kk = 1, MoINumZ
+                  ind = (kk-1)*MoINumX + ii
+                  do sigCase = 1,4
+                      NxUpp = merge(xlim(sigCase), NXlim(ii,2), xlim(sigCase) >= NXlim(ii,1) .and. xlim(sigCase) <= NXlim(ii,2))
+                      NzUpp = merge(zlim(sigCase), NZlim(kk,2), zlim(sigCase) >= NZlim(kk,1) .and. zlim(sigCase) <= NZlim(kk,2))
+                      buffInt = merge(1, 0, NXoI(i) >= NXlim(ii,1) .and. NXoI(i) <= NxUpp .and. NZoI(k_ind) >= NZlim(kk,1) .and. NZoI(k_ind) <= NzUpp)
+                      buffInt = max(((NxUpp-NXlim(ii,1)+1)*(NzUpp-NZlim(kk,1)+1)-buffInt),1)
+                      buff_fib(:,1:4, sigCase,ind) = sum( sum(buff_fold(:,1:4, sigCase,NXlim(ii,1):NxUpp, NZlim(kk,1):NzUpp), dim=4), dim=3 ) / buffInt
+                  end do
+              end do
+          end do
+          convs_uu(1:4,1:4, jpl, i, k_ind, :) = convs_uu(1:4,1:4, jpl, i, k_ind, :) + buff_fib(1, 1:4,1:4, :)
+          convs_uv(1:4,1:4, jpl, i, k_ind, :) = convs_uv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
+          convs_uw(1:4,1:4, jpl, i, k_ind, :) = convs_uw(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :) 
+
+          ! write(*,*) maxval(convs_uu(1, jpl, i, k_ind, :))
+          ! if (i==6 .and. k==12) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          !     write(*,*) convs_uu(1, 2, jpl, i, k_ind, 100:102)
+          ! end if
+
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! calculate advection term for vu, vv, vw !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          buff_Re(1,1:ncs) = ( u1B_Im(1:ncs)*u2A_Re(1:ncs) + u1B_Re(1:ncs)*u2A_Im(1:ncs) ) * kc_x
+          buff_Im(1,1:ncs) = ( u1B_Im(1:ncs)*u2A_Im(1:ncs) - u1B_Re(1:ncs)*u2A_Re(1:ncs) ) * kc_x
+          buff_Re(2,1:ncs) = - u2B_Re(1:ncs)*s2A_Re(1:ncs) + u2B_Im(1:ncs)*s2A_Im(1:ncs) &
+                                  & - s2B_Re(1:ncs)*u2A_Re(1:ncs) + s2B_Im(1:ncs)*u2A_Im(1:ncs)
+          buff_Im(2,1:ncs) = - u2B_Re(1:ncs)*s2A_Im(1:ncs) - u2B_Im(1:ncs)*s2A_Re(1:ncs) &
+                                  & - s2B_Re(1:ncs)*u2A_Im(1:ncs) - s2B_Im(1:ncs)*u2A_Re(1:ncs)
+          buff_Re(3,1:ncs) = ( u3B_Im(1:ncs)*u2A_Re(1:ncs) + u3B_Re(1:ncs)*u2A_Im(1:ncs) ) * kc_z
+          buff_Im(3,1:ncs) = ( u3B_Im(1:ncs)*u2A_Im(1:ncs) - u3B_Re(1:ncs)*u2A_Re(1:ncs) ) * kc_z
+
+
+          buff_EP(:,1,1:ncs) = buff_Re(:,1:ncs)*u2C_Re                           + buff_Im(:,1:ncs)*u2C_Im
+          buff_EP(:,2,1:ncs) = buff_Re(:,1:ncs)*u2C_Re/sqrt(u2C_Re**2+u2C_Im**2) &
+                            & + buff_Im(:,1:ncs)*u2C_Im/sqrt(u2C_Re**2+u2C_Im**2)
+
+          buff_fold = 0
+          ! 1: (+,+), 2: (-,+), 3: (+,-), 4: (-,-)
+          do icsub = 1, ncs
+              iia = indMoI(i,k)%SubMatA%ni(  icsub) 
+              kka = indMoI(i,k)%SubMatA%nk(  icsub) 
+              kka = kka*(1-2*IkkcNeg)
+              IkkNeg = (1 - max(isign(1,kka),0))*2
+              IiiNeg = 1 - max(isign(1,iia),0)
+              sigCase = 1+IkkNeg + IiiNeg ! 1: (+,+), 2: (-,+), 3: (+,-), 4: (-,-)
+              buff_fold(:,1,sigCase, abs(iia),abs(kka)) = buff_fold(:,1,sigCase, abs(iia),abs(kka)) + buff_EP(:,1, icsub)
+              buff_fold(:,3,sigCase, abs(iia),abs(kka)) = buff_fold(:,3,sigCase, abs(iia),abs(kka)) + buff_EP(:,2, icsub)
+
+              iib = indMoI(i,k)%SubMatB%ni(  icsub) 
+              kkb = indMoI(i,k)%SubMatB%nk(  icsub)
+              kkb = kkb*(1-2*IkkcNeg) 
+              IkkNeg = (1 - max(isign(1,kkb),0))*2
+              IiiNeg = 1 - max(isign(1,iib),0)
+              sigCase = 1+IkkNeg + IiiNeg
+              buff_fold(:,2,sigCase, abs(iib),abs(kkb)) = buff_fold(:,2,sigCase, abs(iib),abs(kkb)) + buff_EP(:,1, icsub)
+              buff_fold(:,4,sigCase, abs(iib),abs(kkb)) = buff_fold(:,4,sigCase, abs(iib),abs(kkb)) + buff_EP(:,2, icsub)
+          end do
+
+          buff_fold(:,:,1,NXoI(i), NZoI(k_ind)) = 0.0d0
+
+          do ii = 1, MoINumX
+              do kk = 1, MoINumZ
+                  ind = (kk-1)*MoINumX + ii
+                  do sigCase = 1,4
+                      !Using the fibonacci again
+                      NxUpp = merge(xlim(sigCase), NXlim(ii,2), xlim(sigCase) >= NXlim(ii,1) .and. xlim(sigCase) <= NXlim(ii,2))
+                      NzUpp = merge(zlim(sigCase), NZlim(kk,2), zlim(sigCase) >= NZlim(kk,1) .and. zlim(sigCase) <= NZlim(kk,2))
+                      buffInt = merge(1, 0, NXoI(i) >= NXlim(ii,1) .and. NXoI(i) <= NxUpp .and. NZoI(k_ind) >= NZlim(kk,1) .and. NZoI(k_ind) <= NzUpp)
+                      buffInt = max(((NxUpp-NXlim(ii,1)+1)*(NzUpp-NZlim(kk,1)+1)-buffInt),1)
+                      !Averaging buff_fold within the fibonacci regions from before, and storing in buff_fib
+                      buff_fib(:,1:4, sigCase,ind) = sum( sum(buff_fold(:,1:4, sigCase,NXlim(ii,1):NxUpp, NZlim(kk,1):NzUpp), dim=4), dim=3 ) / buffInt
+                  end do
+              end do
+          end do
+
+          convs_vu(1:4,1:4, jpl, i, k_ind, :) = convs_vu(1:4,1:4, jpl, i, k_ind, :) + buff_fib(1, 1:4,1:4, :)
+          convs_vv(1:4,1:4, jpl, i, k_ind, :) = convs_vv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
+          convs_vw(1:4,1:4, jpl, i, k_ind, :) = convs_vw(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :)    
+
+          
+          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! calculate advection term for wu, wv, ww !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+          buff_Re(1,1:ncs) = ( u1B_Im(1:ncs)*u3A_Re(1:ncs) + u1B_Re(1:ncs)*u3A_Im(1:ncs) ) * kc_x  !this is the -ikx*uu
+          buff_Im(1,1:ncs) = ( u1B_Im(1:ncs)*u3A_Im(1:ncs) - u1B_Re(1:ncs)*u3A_Re(1:ncs) ) * kc_x
+          buff_Re(2,1:ncs) = - u2B_Re(1:ncs)*s3A_Re(1:ncs) + u2B_Im(1:ncs)*s3A_Im(1:ncs) &
+                                  & - s2B_Re(1:ncs)*u3A_Re(1:ncs) + s2B_Im(1:ncs)*u3A_Im(1:ncs)
+          buff_Im(2,1:ncs) = - u2B_Re(1:ncs)*s3A_Im(1:ncs) - u2B_Im(1:ncs)*s3A_Re(1:ncs) &
+                                  & - s2B_Re(1:ncs)*u3A_Im(1:ncs) - s2B_Im(1:ncs)*u3A_Re(1:ncs)
+          buff_Re(3,1:ncs) = ( u3B_Im(1:ncs)*u3A_Re(1:ncs) + u3B_Re(1:ncs)*u3A_Im(1:ncs) ) * kc_z
+          buff_Im(3,1:ncs) = ( u3B_Im(1:ncs)*u3A_Im(1:ncs) - u3B_Re(1:ncs)*u3A_Re(1:ncs) ) * kc_z
+
+
+          buff_EP(:,1,1:ncs) = buff_Re(:,1:ncs)*u3C_Re                           + buff_Im(:,1:ncs)*u3C_Im
+          buff_EP(:,2,1:ncs) = buff_Re(:,1:ncs)*u3C_Re/sqrt(u3C_Re**2+u3C_Im**2) & 
+                            & + buff_Im(:,1:ncs)*u3C_Im/sqrt(u3C_Re**2+u3C_Im**2)
+          buff_fold = 0
+          do icsub = 1, ncs
+              iia = indMoI(i,k)%SubMatA%ni(  icsub) 
+              kka = indMoI(i,k)%SubMatA%nk(  icsub) 
+              kka = kka*(1-2*IkkcNeg)
+              IkkNeg = (1 - max(isign(1,kka),0))*2
+              IiiNeg = 1 - max(isign(1,iia),0)
+              sigCase = 1+IkkNeg + IiiNeg ! 1: (+,+), 2: (-,+), 3: (+,-), 4: (-,-)
+              buff_fold(:,1,sigCase, abs(iia),abs(kka)) = buff_fold(:,1,sigCase, abs(iia),abs(kka)) + buff_EP(:,1, icsub)
+              buff_fold(:,3,sigCase, abs(iia),abs(kka)) = buff_fold(:,3,sigCase, abs(iia),abs(kka)) + buff_EP(:,2, icsub)
+
+              iib = indMoI(i,k)%SubMatB%ni(  icsub) 
+              kkb = indMoI(i,k)%SubMatB%nk(  icsub) 
+              kkb = kkb*(1-2*IkkcNeg)
+              IkkNeg = (1 - max(isign(1,kkb),0))*2
+              IiiNeg = 1 - max(isign(1,iib),0)
+              sigCase = 1+IkkNeg + IiiNeg
+              buff_fold(:,2,sigCase, abs(iib),abs(kkb)) = buff_fold(:,2,sigCase, abs(iib),abs(kkb)) + buff_EP(:,1, icsub)
+              buff_fold(:,4,sigCase, abs(iib),abs(kkb)) = buff_fold(:,4,sigCase, abs(iib),abs(kkb)) + buff_EP(:,2, icsub)
+          end do
+      
+          buff_fold(:,:,1,NXoI(i), NZoI(k_ind)) = 0.0d0
+
+          do ii = 1, MoINumX
+              do kk = 1, MoINumZ
+                  ind = (kk-1)*MoINumX + ii
+                  do sigCase = 1,4
+                      NxUpp = merge(xlim(sigCase), NXlim(ii,2), xlim(sigCase) >= NXlim(ii,1) .and. xlim(sigCase) <= NXlim(ii,2))
+                      NzUpp = merge(zlim(sigCase), NZlim(kk,2), zlim(sigCase) >= NZlim(kk,1) .and. zlim(sigCase) <= NZlim(kk,2))
+                      buffInt = merge(1, 0, NXoI(i) >= NXlim(ii,1) .and. NXoI(i) <= NxUpp .and. NZoI(k_ind) >= NZlim(kk,1) .and. NZoI(k_ind) <= NzUpp)
+                      buffInt = max(((NxUpp-NXlim(ii,1)+1)*(NzUpp-NZlim(kk,1)+1)-buffInt),1)
+                      buff_fib(:,1:4, sigCase,ind) = sum( sum(buff_fold(:,1:4, sigCase,NXlim(ii,1):NxUpp, NZlim(kk,1):NzUpp), dim=4), dim=3 ) / buffInt
+                  end do
+              end do
+          end do
+
+          convs_wu(1:4,1:4, jpl, i, k_ind, :) = convs_wu(1:4,1:4, jpl, i, k_ind, :) + buff_fib(1, 1:4,1:4, :)
+          convs_wv(1:4,1:4, jpl, i, k_ind, :) = convs_wv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
+          convs_ww(1:4,1:4, jpl, i, k_ind, :) = convs_ww(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :)
+
+          deallocate(buff_EP, buff_Re, buff_Im)
+
+
+        end do
+      end do
+    end do
+  End Do
+
+  write(*,*) ''
+
+  print *, 'Begin writing'
+
+  do jpl = 1,PLoINum
+    write(extnkx,'(i3.3)') MoINumX
+    write(extnkz,'(i3.3)') MoINumZ
+    write(extny ,'(i3.3)') int(yPLoi(jpl))
+
+    fnameList = trim(output)//'/'//trim(map_output)//'/TRD_'//extnkx//'_'//extnkz//'_'//extny//'.dat'
+
+    
+    open(unit=50, file=fnameList, form='unformatted')
+    write(50) Re, alp, bet, mpgx, Ntx, Ntz
+    write(50) NYoI(jpl), yPLoi(jpl)
+    write(50) NXfib(:), NZfib(:)
+    write(50) NXoI(:), NZoI(:)
+    write(50) nsamp
+    do i = 1,MoINumX
+      do k = 1, MoINumZ
+        write(50)
+        write(50) NXoI(i), NZoI(k)
+        do f = 1, 4
+          do s = 1,4
+          write(50) convs_uu(f, s, jpl, i, k, :), convs_uv(f, s, jpl, i, k, :), convs_uw(f, s, jpl, i, k, :)
+          write(50) convs_vu(f, s, jpl, i, k, :), convs_vv(f, s, jpl, i, k, :), convs_vw(f, s, jpl, i, k, :)
+          write(50) convs_wu(f, s, jpl, i, k, :), convs_wv(f, s, jpl, i, k, :), convs_ww(f, s, jpl, i, k, :)
+
+              ! if (i==7 .and. k==7) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              !     write(*,*) convs_uu(1, 1, jpl, i, k, 50:52)
+              ! end if
+          end do
+        end do
+      end do
+    end do
+    close(50)
+  end do
+
+  
+
+end subroutine 

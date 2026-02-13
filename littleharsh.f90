@@ -160,7 +160,7 @@ nextqt = floor(t*10d0)/10d0+0.1d0
 
   ! MAIN LOOP 
   ! do while (t<maxt) ! This is the original condition
-  do while (t<maxt .AND. iter <8)
+  do while (t<maxt .AND. iter <2)
     ! Runge-Kutta substeps
     do kRK = 1,3
     
@@ -235,7 +235,9 @@ nextqt = floor(t*10d0)/10d0+0.1d0
   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   ! Deallocate memory and shut communications
+  
   call finalize(u1,u2,u3,p,div,myid,status,ierr)
+  
 
 end program
 
@@ -275,10 +277,10 @@ subroutine divergence(div,u1,u2,u3,myid)
       end do
   end do
 
-  end subroutine
+end subroutine
 
 
-  subroutine laplacian_U(Lu,u,myid)
+subroutine laplacian_U(Lu,u,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!    LAPLACIAN NEW CHECKED   !!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -323,9 +325,9 @@ subroutine divergence(div,u1,u2,u3,myid)
 
 
 
-  end subroutine
+end subroutine
 
-  subroutine laplacian_V(Lu,u,myid)
+subroutine laplacian_V(Lu,u,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!    LAPLACIAN  NEW CHECKED  !!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -365,9 +367,9 @@ subroutine divergence(div,u1,u2,u3,myid)
 
   end do
 
-  end subroutine
+end subroutine
 
-  subroutine error(A,myid,ierr)
+subroutine error(A,myid,ierr)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!     ERROR      !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -406,10 +408,10 @@ subroutine divergence(div,u1,u2,u3,myid)
 
 
 
-  end subroutine
+end subroutine
 
 
-  subroutine finalize(u1,u2,u3,p,div,myid,status,ierr)
+subroutine finalize(u1,u2,u3,p,div,myid,status,ierr)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!    FINALIZE    !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -442,7 +444,9 @@ subroutine divergence(div,u1,u2,u3,myid)
   call modes_to_planes_UVP(u3PL,u3,2,nyu,nyu_LB,myid,status,ierr)
   call modes_to_planes_UVP(ppPL, p,3,nyp,nyp_LB,myid,status,ierr)
 
+  call record_map(u1PL,u2PL,u3PL,myid)
   call record_out(u1,myid)
+  
 
   if (myid/=0) then
       call MPI_SEND(1d0,1,MPI_REAL8,0,101+myid,MPI_COMM_WORLD,ierr)
@@ -468,9 +472,9 @@ subroutine divergence(div,u1,u2,u3,myid)
   end if
   call MPI_FINALIZE(ierr)
 
-  end subroutine
+end subroutine
 
-  subroutine flowrateIm(Qu,u)
+subroutine flowrateIm(Qu,u)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!         FLOW RATE          !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -489,10 +493,10 @@ subroutine divergence(div,u1,u2,u3,myid)
       Qu = Qu + (yv(j) - yv(j-1))*dreal(u(j)) !Mixed ugrid vgrid
   end do
 
-  end subroutine
+end subroutine
     
 
-  subroutine flowrateRe(Qu,u)
+subroutine flowrateRe(Qu,u)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!        FLOW RATE 0         !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -510,9 +514,9 @@ subroutine divergence(div,u1,u2,u3,myid)
       Qu = Qu + (yv(j) - yv(j-1))*u(j) !Mixed ugrid vgrid
   end do
 
-  end subroutine
+end subroutine
 
-  subroutine flowrate_corr(u,mpg,g)
+subroutine flowrate_corr(u,mpg,g)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!        FLOW RATE 0         !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -545,9 +549,9 @@ subroutine divergence(div,u1,u2,u3,myid)
       u(j) = u(j)+g*u11(j)
   end do
 
-  end subroutine
+end subroutine
 
-  subroutine maxvel(u)
+subroutine maxvel(u)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!          MAX VEL           !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -567,9 +571,9 @@ subroutine divergence(div,u1,u2,u3,myid)
   !   write(6,*) " Umax", Umax, dreal(u(j)), "j", j
   ! end do 
 
-  end subroutine
+end subroutine
 
-  subroutine meanflow_ctP(u1,myid)
+subroutine meanflow_ctP(u1,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!! MEAN FLOW WITH CONSTANT MPG  !!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -586,9 +590,9 @@ subroutine divergence(div,u1,u2,u3,myid)
       call flowrateIm(Qx,u1(jlim(1,ugrid),1)) 
   end if
 
-  end subroutine
+end subroutine
 
-  subroutine meanflow_ctU(u1,myid)
+subroutine meanflow_ctU(u1,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!       MEAN FLOW CORR       !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -604,7 +608,7 @@ subroutine divergence(div,u1,u2,u3,myid)
       call flowrate_corr(u1(jlim(1,ugrid),1),mpgx,dgx)
   end if
 
-  end subroutine
+end subroutine
 
   !subroutine meanpressgrad(mpg,u)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -623,7 +627,7 @@ subroutine divergence(div,u1,u2,u3,myid)
 
   !end subroutine
 
-  subroutine solveP(p,psi,u1,u2,u3,div,myid)
+subroutine solveP(p,psi,u1,u2,u3,div,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!     SOLVE P    !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -677,9 +681,9 @@ subroutine divergence(div,u1,u2,u3,myid)
   
   ! end do
 
-  end subroutine
+end subroutine
 
-  subroutine RHS0_u1(du1,u1,Nu1,p,myid)
+subroutine RHS0_u1(du1,u1,Nu1,p,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!   RHS U1 NEW CHECKED  but not the mean p grad bit !!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -748,9 +752,9 @@ subroutine divergence(div,u1,u2,u3,myid)
     ! end if
 
 
-  end subroutine
+end subroutine
 
-  subroutine RHS0_u2(du2,u2,Nu2,p,myid)
+subroutine RHS0_u2(du2,u2,Nu2,p,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!     RHS  U2    !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -802,9 +806,9 @@ subroutine divergence(div,u1,u2,u3,myid)
   end do
   ! end do
   
-  end subroutine
+end subroutine
 
-  subroutine RHS0_u3(du3,u3,Nu3,p,myid)
+subroutine RHS0_u3(du3,u3,Nu3,p,myid)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!     RHS  U3    !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -853,14 +857,14 @@ subroutine divergence(div,u1,u2,u3,myid)
       
   end do
 
-  end subroutine
+end subroutine
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!  LU Solve's combined  !!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   
-  subroutine solveU(u,du,grid,a_grid,myid) !pass (u,du,w,dw)
+subroutine solveU(u,du,grid,a_grid,myid) !pass (u,du,w,dw)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!    SOLVE U1    !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -891,9 +895,9 @@ subroutine divergence(div,u1,u2,u3,myid)
 
       call LUsolU(u,du,a_grid(1:3,jlim(1,grid):jlim(2,grid)),grid,myid)
 
-  end subroutine
+end subroutine
 
-  subroutine v_corr(u1,u2,u3,psi,div,myid,status,ierr)
+subroutine v_corr(u1,u2,u3,psi,div,myid,status,ierr)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!     V_CORR     !!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -990,4 +994,4 @@ subroutine divergence(div,u1,u2,u3,myid)
   call divergence(div,u1,u2,u3,myid)
 
   deallocate(vcorrPL)
-  end subroutine
+end subroutine

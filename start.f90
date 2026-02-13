@@ -495,13 +495,13 @@ end if
 
   ! !! added nonlin read here so read before allocating proc_lims_planes
 
-  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  if (myid == 0) then
-    write(*,*) 'Getting Weights'
-    write(*,*) dirlist
-    write(*,*)
-    call get_weights
-  end if
+  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  ! if (myid == 0) then
+  !   write(*,*) 'Getting Weights'
+  !   write(*,*) dirlist
+  !   write(*,*)
+  !   call get_weights
+  ! end if
   
   call MPI_BARRIER(MPI_COMM_WORLD,ierr)
   ! write(*,*) 'finished reading nonlinear interaction list'
@@ -649,14 +649,22 @@ end if
   spUV = 0d0
   spP  = 0d0
 
-  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  if (myid == 0) then
-    write(*,*) 'Reading in nonlinear interaction list'
-    write(*,*) dirlist
-    write(*,*)
-  end if
-  call nonlinRead
-  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  ! initialising map outputs 
+  if (myid ==0) then
+    call init_fib
+    call init_planes_of_interest
+    call init_triads(myid)
+    call trd_alloc_setup
+  end if 
+
+  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  ! if (myid == 0) then
+  !   write(*,*) 'Reading in nonlinear interaction list'
+  !   write(*,*) dirlist
+  !   write(*,*)
+  ! end if
+  ! call nonlinRead
+  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   
 end subroutine
@@ -873,30 +881,30 @@ subroutine def_k
   ! ! write(*,*) 'size(iNeg)  = ', size(iNeg)
 
 
-  ! for nonlinear
-  !! currently only works for when same discretisation for each band
-  do i = 0,Nspec_x/2
-    iLkup(i) =  i*2+1
-    iNeg(i) = 1
+  ! ! for nonlinear
+  ! !! currently only works for when same discretisation for each band
+  ! do i = 0,Nspec_x/2
+  !   iLkup(i) =  i*2+1
+  !   iNeg(i) = 1
     
-  end do
-  do i = -Nspec_x/2,-1
-    iLkup(i) =  abs(i)*2+1
-    iNeg(i) = -1
-    !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
-  end do
+  ! end do
+  ! do i = -Nspec_x/2,-1
+  !   iLkup(i) =  abs(i)*2+1
+  !   iNeg(i) = -1
+  !   !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
+  ! end do
 
 
-  do k = 0,Nspec_z/2-1
-    kLkup(k) =  k+1
-    ! write(6,*) "kLkup", kLkup(k), k 
-  end do
+  ! do k = 0,Nspec_z/2-1
+  !   kLkup(k) =  k+1
+  !   ! write(6,*) "kLkup", kLkup(k), k 
+  ! end do
 
-  kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
-  do k = -Nspec_z/2,-1
-    kLkup(k) = k + 1 + Ngal_z
-    ! write(6,*) "kLkup", kLkup(k), k 
-  end do
+  ! kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
+  ! do k = -Nspec_z/2,-1
+  !   kLkup(k) = k + 1 + Ngal_z
+  !   ! write(6,*) "kLkup", kLkup(k), k 
+  ! end do
   
   
 end subroutine
@@ -1116,229 +1124,48 @@ subroutine proc_lims_planes(myid)
 
   proc_load = 0.0d0
 
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DNS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! DNS !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  ! !-------------------------------------------------------------------------------------
-  ! ! Simple equal-plane partition in j: give each proc roughly same no. planes for DNS
-  ! !-------------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------------
+  ! Simple equal-plane partition in j: give each proc roughly same no. planes for DNS
+  !-------------------------------------------------------------------------------------
   
-  ! ! total number of active planes in j (without walls)
-  ! iplanes = jupp - jlow + 1
+  ! total number of active planes in j (without walls)
+  iplanes = jupp - jlow + 1
 
-  ! ! base number of planes per proc and remainder
-  ! proc_planes = iplanes / np
-  ! rem_planes  = mod(iplanes, np)
+  ! base number of planes per proc and remainder
+  proc_planes = iplanes / np
+  rem_planes  = mod(iplanes, np)
 
-  ! j = jlow
-  ! do iproc = 0, np-1
+  j = jlow
+  do iproc = 0, np-1
 
-  !    ! first rem_planes procs get one extra plane
-  !    if (iproc < rem_planes) then
-  !       nplanes(iproc) = proc_planes + 1
-  !    else
-  !       nplanes(iproc) = proc_planes
-  !    end if
+     ! first rem_planes procs get one extra plane
+     if (iproc < rem_planes) then
+        nplanes(iproc) = proc_planes + 1
+     else
+        nplanes(iproc) = proc_planes
+     end if
 
-  !    jmin_plane(iproc) = j
-  !    jmax_plane(iproc) = j + nplanes(iproc) - 1
+     jmin_plane(iproc) = j
+     jmax_plane(iproc) = j + nplanes(iproc) - 1
 
-  !    j = jmax_plane(iproc) + 1
+     j = jmax_plane(iproc) + 1
 
-  !    ! if you still want a "load" number, just set it ~ nplanes
-  !    proc_load(iproc) = nplanes(iproc)
+     ! if you still want a "load" number, just set it ~ nplanes
+     proc_load(iproc) = nplanes(iproc)
 
-  ! end do
-
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! !!!!!!!!!!!!!!!!!!!!!!  setting global variables !!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  ! do iproc = 0, np-1
-
-  !   ! default: all grids use full j-range for this proc
-  !   planelim(ugrid,1,iproc) = jmin_plane(iproc)
-  !   planelim(ugrid,2,iproc) = jmax_plane(iproc)
-
-  !   planelim(vgrid,1,iproc) = jmin_plane(iproc)
-  !   planelim(vgrid,2,iproc) = jmax_plane(iproc)
-
-  !   planelim(pgrid,1,iproc) = jmin_plane(iproc)
-  !   planelim(pgrid,2,iproc) = jmax_plane(iproc)
-
-  !   ! special case: first proc (shift p-grid start)
-  !   if (iproc == 0) then
-  !     planelim(pgrid,1,iproc) = jmin_plane(iproc) + 1
-
-  !   ! special case: last proc (shrink v and p by 1 at top)
-  !   else if (iproc == np-1) then
-  !     planelim(vgrid,2,iproc) = jmax_plane(iproc) - 1
-  !     planelim(pgrid,2,iproc) = jmax_plane(iproc) - 1
-  !   end if
-
-  !   nplanes(iproc) = planelim(ugrid,2,iproc) - planelim(ugrid,1,iproc) + 1
-
-  !   ! bandPL(iproc) = nband ! keeping this for now bc otherwise code will break but setting at a const
-
-  ! end do
-
-
-  ! ! limPL_incw: like old code – same as planelim but extend first/last proc by 1 plane
-  ! ! limPL_incw is like planelim but including first and last points that were previously removed.
-  ! !  It is only used in planes_to_modes_UVP, modes_to_planes_UVP, record_out and stats
-  ! limPL_excw = planelim
-
-  ! limPL_incw = planelim
-  ! limPL_incw(:,1,0   ) = planelim(:,1,0   ) - 1
-  ! limPL_incw(:,2,np-1) = planelim(:,2,np-1) + 1
-
-  ! igal = Ngal_x+2
-  ! kgal = Ngal_z
-
-
-  ! jgal(ugrid,1) = limPL_excw(ugrid,1,myid)
-  ! jgal(ugrid,2) = limPL_excw(ugrid,2,myid)
-  ! jgal(vgrid,1) = limPL_excw(vgrid,1,myid)
-  ! jgal(vgrid,2) = limPL_excw(vgrid,2,myid)
-  ! jgal(pgrid,1) = limPL_excw(pgrid,1,myid)
-  ! jgal(pgrid,2) = limPL_excw(pgrid,2,myid)
-
-  ! ! write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
-
-
-  ! if (myid == 0) then
-  !   do iproc = 0, np-1
-  !     write(6,*) "iproc", iproc, &
-  !               "nplanes", nplanes(iproc), &
-  !               "proc_load", proc_load(iproc)
-  !   end do
-  ! end if
-
+  end do
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RNL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  ! Rank 0 computes plane ownership for all ranks (indexed by iproc)
-  ! then sends this info to the other procs who can access it 
-
-
-  if (myid ==0) then 
-
-    weight_tot = sum(weight)  
-    ideal_load = weight_tot / np
-
-    write(6,*) "weight_tot",weight_tot, "ideal_load", ideal_load
-    ! write(6,*) "weight(151)",weight(151), "weight(1)", weight(1)
-
-    jmin_plane(0) = jlow
-
-    !initialising values 
-    cumulative_load = 0.0d0
-    iproc = 0
-    j = jlow
-    ! proc_load = 0
-    ! nplanes   = 0
-
-    do while (iproc <= np-1)
-      if (j<= jupp) then 
-        cumulative_load = cumulative_load + weight(j)
-        if (cumulative_load >= ideal_load) then
-          ! ! default: cut at j
-          ! cut_plane = j
-          ! proc_load(iproc) = cumulative_load
-
-          cut_plane = j
-          proc_load(iproc) = cumulative_load
-
-          if (j > jmin_plane(iproc)) then
-            cumulative_load_2 = cumulative_load - weight(j)     ! load up to j-1
-            if (abs(cumulative_load_2 - ideal_load) < abs(proc_load(iproc) - ideal_load)) then
-              cut_plane = j-1
-              proc_load(iproc) = cumulative_load_2
-            end if
-          end if
-
-
-          !define max j fort hat proc and the no. planes 
-          jmax_plane(iproc) = cut_plane
-          nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
-          
-          ! if we get to last proc before all j planes are taken, fill the last proc with all remaining planes 
-          if (iproc == np-1) then
-            jmax_plane(iproc) = jupp
-            proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
-            exit
-          else
-            iproc = iproc + 1
-            jmin_plane(iproc) = cut_plane + 1
-          end if
-
-          cumulative_load = 0.0d0
-          j = cut_plane + 1
-          endproc = iproc   ! <-- the last filled proc index
-        else
-          j = j + 1
-        end if
-      else 
-        !if we get to top proc before all planes are filled... 
-        endproc = iproc   ! <-- the last filled proc index
-        jmax_plane(iproc) = jupp
-        proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
-        nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
-        do i = iproc+1, np-1
-          jmin_plane(i) = jupp + 1
-          jmax_plane(i) = jupp
-          proc_load(i)  = 0.0d0
-        end do
-        exit
-      end if 
-
-    end do
-
-    !!!!!!!!!!!!!!!!!!!!  redistributing planes w nothing.. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    ! takes one from each of the last n planes and shifts the planes and the weights 
-    ! this frees up n planes where one plane will be given to the remaining unloaded procs 
-    if (endproc < np-1) then 
-      startproc = endproc - (np-1 - endproc) +1
-      proc_load(startproc) = proc_load(startproc)-weight(jmax_plane(startproc))
-      jmax_plane(startproc) = jmax_plane(startproc) -1
-      
-      do i = startproc+1, endproc
-        proc_load(i) = 0 
-        nplanes(i) = nplanes(i)-1   
-        jmin_plane(i) = jmax_plane(i-1)+1
-        jmax_plane(i) = jmin_plane(i)+ nplanes(i) -1 !this minus 1 bc if start j = 110, then 3 planes is acc 110,111,112
-        do j =  jmin_plane(i), jmax_plane(i)
-          proc_load(i) = proc_load(i) + weight(j)
-        end do 
-      end do 
-
-      ! treatmeant of planes w. 0 load
-
-      do i = endproc+1, np-1  
-        jmin_plane(i) = jmax_plane(i-1) +1
-        jmax_plane(i) = jmin_plane(i)
-        proc_load(i) = weight(jmax_plane(i))
-      end do 
-
-    end if 
-
-  end if 
-
-  call MPI_BCAST(jmin_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  call MPI_BCAST(jmax_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  call MPI_BCAST(proc_load,  np, MPI_DOUBLE_PRECISION,   0, MPI_COMM_WORLD, ierr)
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!           RNL SPECIFIC         !!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!  setting global variables !!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   do iproc = 0, np-1
 
-    ! default: all grids use full j-range 
+    ! default: all grids use full j-range for this proc
     planelim(ugrid,1,iproc) = jmin_plane(iproc)
     planelim(ugrid,2,iproc) = jmax_plane(iproc)
 
@@ -1352,14 +1179,15 @@ subroutine proc_lims_planes(myid)
     if (iproc == 0) then
       planelim(pgrid,1,iproc) = jmin_plane(iproc) + 1
 
-    end if
-
-    ! special case: shift final u-grid by 1
-    if (iproc == np-1) then
-      planelim(ugrid,2,iproc) = jmax_plane(iproc) + 1
+    ! special case: last proc (shrink v and p by 1 at top)
+    else if (iproc == np-1) then
+      planelim(vgrid,2,iproc) = jmax_plane(iproc) - 1
+      planelim(pgrid,2,iproc) = jmax_plane(iproc) - 1
     end if
 
     nplanes(iproc) = planelim(ugrid,2,iproc) - planelim(ugrid,1,iproc) + 1
+
+    ! bandPL(iproc) = nband ! keeping this for now bc otherwise code will break but setting at a const
 
   end do
 
@@ -1384,7 +1212,7 @@ subroutine proc_lims_planes(myid)
   jgal(pgrid,1) = limPL_excw(pgrid,1,myid)
   jgal(pgrid,2) = limPL_excw(pgrid,2,myid)
 
-  !write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
+  ! write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
 
 
   if (myid == 0) then
@@ -1395,7 +1223,187 @@ subroutine proc_lims_planes(myid)
     end do
   end if
 
-  deallocate(jmin_plane, jmax_plane, nplanes, proc_load)
+
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! RNL !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! ! Rank 0 computes plane ownership for all ranks (indexed by iproc)
+  ! ! then sends this info to the other procs who can access it 
+
+
+  ! if (myid ==0) then 
+
+  !   weight_tot = sum(weight)  
+  !   ideal_load = weight_tot / np
+
+  !   write(6,*) "weight_tot",weight_tot, "ideal_load", ideal_load
+  !   ! write(6,*) "weight(151)",weight(151), "weight(1)", weight(1)
+
+  !   jmin_plane(0) = jlow
+
+  !   !initialising values 
+  !   cumulative_load = 0.0d0
+  !   iproc = 0
+  !   j = jlow
+  !   ! proc_load = 0
+  !   ! nplanes   = 0
+
+  !   do while (iproc <= np-1)
+  !     if (j<= jupp) then 
+  !       cumulative_load = cumulative_load + weight(j)
+  !       if (cumulative_load >= ideal_load) then
+  !         ! ! default: cut at j
+  !         ! cut_plane = j
+  !         ! proc_load(iproc) = cumulative_load
+
+  !         cut_plane = j
+  !         proc_load(iproc) = cumulative_load
+
+  !         if (j > jmin_plane(iproc)) then
+  !           cumulative_load_2 = cumulative_load - weight(j)     ! load up to j-1
+  !           if (abs(cumulative_load_2 - ideal_load) < abs(proc_load(iproc) - ideal_load)) then
+  !             cut_plane = j-1
+  !             proc_load(iproc) = cumulative_load_2
+  !           end if
+  !         end if
+
+
+  !         !define max j fort hat proc and the no. planes 
+  !         jmax_plane(iproc) = cut_plane
+  !         nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
+          
+  !         ! if we get to last proc before all j planes are taken, fill the last proc with all remaining planes 
+  !         if (iproc == np-1) then
+  !           jmax_plane(iproc) = jupp
+  !           proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
+  !           exit
+  !         else
+  !           iproc = iproc + 1
+  !           jmin_plane(iproc) = cut_plane + 1
+  !         end if
+
+  !         cumulative_load = 0.0d0
+  !         j = cut_plane + 1
+  !         endproc = iproc   ! <-- the last filled proc index
+  !       else
+  !         j = j + 1
+  !       end if
+  !     else 
+  !       !if we get to top proc before all planes are filled... 
+  !       endproc = iproc   ! <-- the last filled proc index
+  !       jmax_plane(iproc) = jupp
+  !       proc_load(iproc)  = real(weight_tot,8) - sum(proc_load(0:iproc-1))
+  !       nplanes(iproc) = jmax_plane(iproc) - jmin_plane(iproc) +1
+  !       do i = iproc+1, np-1
+  !         jmin_plane(i) = jupp + 1
+  !         jmax_plane(i) = jupp
+  !         proc_load(i)  = 0.0d0
+  !       end do
+  !       exit
+  !     end if 
+
+  !   end do
+
+  !   !!!!!!!!!!!!!!!!!!!!  redistributing planes w nothing.. !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !   ! takes one from each of the last n planes and shifts the planes and the weights 
+  !   ! this frees up n planes where one plane will be given to the remaining unloaded procs 
+  !   if (endproc < np-1) then 
+  !     startproc = endproc - (np-1 - endproc) +1
+  !     proc_load(startproc) = proc_load(startproc)-weight(jmax_plane(startproc))
+  !     jmax_plane(startproc) = jmax_plane(startproc) -1
+      
+  !     do i = startproc+1, endproc
+  !       proc_load(i) = 0 
+  !       nplanes(i) = nplanes(i)-1   
+  !       jmin_plane(i) = jmax_plane(i-1)+1
+  !       jmax_plane(i) = jmin_plane(i)+ nplanes(i) -1 !this minus 1 bc if start j = 110, then 3 planes is acc 110,111,112
+  !       do j =  jmin_plane(i), jmax_plane(i)
+  !         proc_load(i) = proc_load(i) + weight(j)
+  !       end do 
+  !     end do 
+
+  !     ! treatmeant of planes w. 0 load
+
+  !     do i = endproc+1, np-1  
+  !       jmin_plane(i) = jmax_plane(i-1) +1
+  !       jmax_plane(i) = jmin_plane(i)
+  !       proc_load(i) = weight(jmax_plane(i))
+  !     end do 
+
+  !   end if 
+
+  ! end if 
+
+  ! call MPI_BCAST(jmin_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(jmax_plane, np, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(proc_load,  np, MPI_DOUBLE_PRECISION,   0, MPI_COMM_WORLD, ierr)
+
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!           RNL SPECIFIC         !!!!!!!!!!!!!!!!!!!!!
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! do iproc = 0, np-1
+
+  !   ! default: all grids use full j-range 
+  !   planelim(ugrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(ugrid,2,iproc) = jmax_plane(iproc)
+
+  !   planelim(vgrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(vgrid,2,iproc) = jmax_plane(iproc)
+
+  !   planelim(pgrid,1,iproc) = jmin_plane(iproc)
+  !   planelim(pgrid,2,iproc) = jmax_plane(iproc)
+
+  !   ! special case: first proc (shift p-grid start)
+  !   if (iproc == 0) then
+  !     planelim(pgrid,1,iproc) = jmin_plane(iproc) + 1
+
+  !   end if
+
+  !   ! special case: shift final u-grid by 1
+  !   if (iproc == np-1) then
+  !     planelim(ugrid,2,iproc) = jmax_plane(iproc) + 1
+  !   end if
+
+  !   nplanes(iproc) = planelim(ugrid,2,iproc) - planelim(ugrid,1,iproc) + 1
+
+  ! end do
+
+
+  ! ! limPL_incw: like old code – same as planelim but extend first/last proc by 1 plane
+  ! ! limPL_incw is like planelim but including first and last points that were previously removed.
+  ! !  It is only used in planes_to_modes_UVP, modes_to_planes_UVP, record_out and stats
+  ! limPL_excw = planelim
+
+  ! limPL_incw = planelim
+  ! limPL_incw(:,1,0   ) = planelim(:,1,0   ) - 1
+  ! limPL_incw(:,2,np-1) = planelim(:,2,np-1) + 1
+
+  ! igal = Ngal_x+2
+  ! kgal = Ngal_z
+
+
+  ! jgal(ugrid,1) = limPL_excw(ugrid,1,myid)
+  ! jgal(ugrid,2) = limPL_excw(ugrid,2,myid)
+  ! jgal(vgrid,1) = limPL_excw(vgrid,1,myid)
+  ! jgal(vgrid,2) = limPL_excw(vgrid,2,myid)
+  ! jgal(pgrid,1) = limPL_excw(pgrid,1,myid)
+  ! jgal(pgrid,2) = limPL_excw(pgrid,2,myid)
+
+  ! !write(6,*) "jgal(ugrid,1)", jgal(ugrid,1), "jgal(ugrid,2)", jgal(ugrid,2), myid
+
+
+  ! if (myid == 0) then
+  !   do iproc = 0, np-1
+  !     write(6,*) "iproc", iproc, &
+  !               "nplanes", nplanes(iproc), &
+  !               "proc_load", proc_load(iproc)
+  !   end do
+  ! end if
+
+  ! deallocate(jmin_plane, jmax_plane, nplanes, proc_load)
 
 
 
@@ -2656,7 +2664,7 @@ subroutine get_weights
       
     end do
 
-    write(6,*) "j=", j, "weight", weight(j)
+    !write(6,*) "j=", j, "weight", weight(j)
     
 
     ! write(6,*) "weight(j)", weight(:)
@@ -2671,4 +2679,393 @@ subroutine get_weights
   ! end do 
 
   write(6,*) "check 4"
+end subroutine
+
+
+
+
+subroutine init_fib
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!   generates fibonacci series for binning   !!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  use declaration
+  implicit none
+
+  integer :: dummI
+  integer :: f
+  integer :: i, ii
+  real(8) :: mindiff, dummRe, tmpRe(4)
+  intrinsic :: log10
+
+  integer, allocatable :: fibo(:), fibSum(:)
+
+  ! matching variables in TRD_V2
+  nxf = Ngal_x 
+  nzf = Ngal_z
+  nyf = nyv
+
+  ! write(6,*) nxf,nzf, nyf
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! chnage later but im manually setting nfib rn
+  nfib =8
+
+
+  nnc = nyf - 1 ! no. cells in y direction
+  nx_trd = nxf/2 -1 ! modes in x direction (nyquist so half -1)
+  nz_trd = nzf/2 -1
+
+
+  dummI = 20
+  allocate(fibo(dummI),fibSum(dummI))
+  fibo = 0 
+  fibo(1:nfib) = 1 
+  do f =  nfib+1, dummI 
+      fibo(f) = fibo(f-1)+fibo(f-nfib+1) 
+  end do
+  fibSum(1) = 0
+  do f = 2,dummI
+      fibSum(f) = fibSum(f-1)+fibo(f) 
+  end do
+  MoINumX = count(fibSum <= nx_trd) 
+  MoINumZ = count(fibSum <= nz_trd) 
+  write(6,*) MoINumX, MoINumZ
+
+  allocate(NXlim(MoINumX,2), NXfib(MoINumX), NZlim(MoINumZ,2), NZfib(MoINumZ))
+  NXlim(:,2) = fibSum(1:MoINumX) 
+  NXlim(MoINumX,2) = nx_trd
+  NXlim(1,1) = 0
+  NXlim(2:MoINumX,1) = fibSum(1:MoINumX-1)+1 
+  NXfib = sqrt(1.0d0 * NXlim(:,1) * NXlim(:,2))
+
+ 
+  NZlim(:,2) = fibSum(1:MoINumZ) !NZ = modes in z direction
+  NZlim(MoINumZ,2) = nz_trd
+  NZlim(1,1) = 0
+  NZlim(2:MoINumZ,1) = fibSum(1:MoINumZ-1)+1
+  NZfib = sqrt(1.0d0 * NZlim(:,1) * NZlim(:,2))
+
+  !NXoI and NZoI are the closest integers to the NXfib & NZfib values
+  allocate(NXoI(MoINumX), NZoI(MoINumZ)) !MoI = modes of interest
+  do i = 1, MoINumX
+      mindiff = huge(1.0) 
+      if (NXlim(i,2) == NXlim(i,1)+1 .or. NXlim(i,2) == NXlim(i,1)) then  
+          NXoI(i) = NXlim(i,2)
+      else
+          do ii = 1, nx_trd
+              dummRe = abs(log10(dble(ii)) - log10(NXfib(i)))
+              if (dummRe < mindiff) then
+                  mindiff = dummRe
+                  NXoI(i) = ii 
+              end if
+          end do
+      end if
+  end do
+  do i = 1, MoINumZ
+      mindiff = huge(1.0)
+      if (NZlim(i,2) == NZlim(i,1)+1 .or. NZlim(i,2) == NZlim(i,1)) then
+          NZoI(i) = NZlim(i,2)
+      else
+          do ii = 1, nz_trd
+              dummRe = abs(log10(dble(ii)) - log10(NZfib(i)))
+              if (dummRe < mindiff) then
+                  mindiff = dummRe
+                  NZoI(i) = ii
+              end if
+          end do
+      end if
+  end do
+
+  write(6,*) 'alp bet =', alp, bet, nx_trd, nz_trd
+
+  write(*,*) "DBG: nzf=", nzf, " nz_trd=", nz_trd, " Nspec_z=", Nspec_z
+  write(*,*) "DBG: MoINumZ=", MoINumZ
+  write(*,*) "DBG: min/max NZoI=", minval(NZoI), maxval(NZoI), " max|NZoI|=", maxval(abs(NZoI))
+  write(*,*) "DBG: Ntz/2-1=", Nspec_z/2 - 1
+  if (maxval(abs(NZoI)) > Nspec_z/2 - 1) stop "BUG: NZoI contains out-of-range kz"
+
+
+
+  ! write to file
+  open(40, file='output/map_output/ModesOfInterest.txt', form='formatted')
+  write(40,*) MoINumX
+  do i = 1, MoINumX 
+      tmpRe(1:2) = NXlim(i,:)*alp
+      tmpRe(3) = NXfib(i)*alp
+      tmpRe(4) = NXoI(i)*alp
+      write(40,'(4F12.6)') tmpRe
+
+  end do
+  write(40,*) 
+  write(40,*) MoINumZ
+  do i = 1, MoINumZ 
+      tmpRe(1:2) = NZlim(i,:)*bet
+      tmpRe(3) = NZfib(i)*bet
+      tmpRe(4) = NZoI(i)*bet
+      write(40,'(4F12.6)') tmpRe
+
+  end do
+  close(40)
+
+end subroutine
+
+
+subroutine init_planes_of_interest
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!    read in important interactions  !!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  use declaration
+  implicit none
+
+  integer :: i
+  integer :: tmpInt(2)
+
+  type(PLj), pointer :: jPL_head
+  type(PLj), pointer :: ptrR
+
+
+
+  open(40, file='output/PlaneOfInterest.txt', form='formatted')
+  read(40,*) tmpInt(1:2)
+  PLoINum  = tmpInt(1)
+  inoutunit= tmpInt(2)    !'inoutunit=0/1' for outer/inner units
+
+  allocate(NYoI(PLoINum))
+  allocate( jPL_head )
+
+  PLoINumEx = 0
+  ptrR => jPL_head
+  ptrR%j = lbound(yu,1)-3
+
+  allocate(buffIndj(PLoINum+1), yPLoi(PLoINum))
+  buffIndj = 0
+
+  Re_tau = sqrt(-mpgx) * Re
+
+  do i = 1, PLoINum
+      read(40,*) yPLoi(i)
+      if (     inoutunit==0) then
+          yPLoI(i) = yPLoI(i)*Re_tau
+          !This is returning the index through the yu grid of this y plane
+          NYoI(i) = minloc( dabs((yu-yv(0))-yPLoi(i)), 1 ) + (lbound(yu,1)-1)    !Input: y in outer units
+      else if (inoutunit==1) then
+          NYoI(i) = minloc( dabs((yu-yv(0))-yPLoi(i)/Re_tau), 1 ) + (lbound(yu,1)-1)    !Input: y in inner units
+      else
+          print *, 'Incorrect inoutunit parameter:', inoutunit
+          stop
+      end if
+
+      !Building a list of the yu index of the plane, with extras inserted where there is a gap to the last index 
+      if (      NYoI(i) >  ptrR%j+1 ) then
+          PLoINumEx = PLoINumEx + 3
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i) - 1
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i)
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i) + 1
+          buffIndj(i) = buffIndj(i) + 2
+          buffIndj(i+1) = buffIndj(i) + 1
+      else if ( NYoI(i) == ptrR%j+1 ) then
+          PLoINumEx = PLoINumEx + 2
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i)
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i) + 1
+          buffIndj(i) = buffIndj(i) + 1
+          buffIndj(i+1) = buffIndj(i) + 1
+      else if ( NYoI(i) == ptrR%j   ) then
+          PLoINumEx = PLoINumEx + 1
+          allocate( ptrR%next )
+          ptrR => ptrR%next
+          ptrR%j = NYoI(i) + 1
+          buffIndj(i+1) = buffIndj(i) + 1   
+      else
+          print *, 'Incorrect building of j-reading list...'
+          stop
+      end if
+
+  end do
+
+  inoutunit = 0
+  
+  allocate( jList_Buff( PLoINumEx ) )
+  ptrR =>jPL_head
+  do i = 1,PLoINumEx
+      ptrR => ptrR%next
+      jList_Buff(i) = ptrR%j
+  end do
+  close(40)
+
+  open(41, file='output/map_output/PlaneOfInterest.txt', form='formatted')
+  write(41,*) PLoINum
+  do i = 1,PLoINum
+      write(41,*) NYoI(i), int(yPLoI(i))
+  end do
+  close(41)
+
+end subroutine 
+
+
+subroutine init_triads(myid)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!         building triad lists        !!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  use declaration
+  implicit none
+
+  integer :: i, k, myid
+  integer :: it_moi
+  integer :: iic, kkc, ncsub, icsub, IkkcNeg
+  integer :: iia, kka, iib, kkb
+  integer :: i_tmp, k_tmp
+
+  MoINumt = MoINumX*MoINumZ
+
+  allocate( indMoI( MoINumX, MoINumZ*2 ) )
+
+  it_moi = 0
+  do i = 1, MoINumX
+    do k = 1, MoINumZ*2
+
+      indMoI(i,k)%NXoI = NXoI(i)
+
+      ! Duplicates NZoI into positive (odd indexes) and negative (even indexes)
+      if (mod(k,2) == 1) then
+        indMoI(i,k)%NZoI =  NZoI((k+1)/2)
+      else
+        indMoI(i,k)%NZoI = -NZoI(k/2)
+      end if
+
+      allocate( indMoI(i,k)%SubMatA )
+      allocate( indMoI(i,k)%SubMatB )
+
+      iic = indMoI(i,k)%NXoI
+      kkc = indMoI(i,k)%NZoI
+
+      ! 0 if kkc positive, 1 if kkc neg
+      IkkcNeg = 1 - max(isign(1,kkc), 0)
+
+      i_tmp = iic*2 + 1
+
+      ! for negative kkc, k_tmp gives that number away from the top wavenumber
+      k_tmp = kkc + 1 + Nspec_z * IkkcNeg
+
+      ! flattened 1D index for (kx,kz)
+      indMoI(i,k)%SubMatA%RIndC = (Nspec_x+2) * (k_tmp-1) + i_tmp
+      indMoI(i,k)%SubMatB%RIndC = (Nspec_x+2) * (k_tmp-1) + i_tmp
+
+      ! number of combinations for each target
+      ncsub = (Nspec_x-1-iic) * (Nspec_z-1-abs(kkc))
+      indMoI(i,k)%SubMatA%nsub = ncsub
+      indMoI(i,k)%SubMatB%nsub = ncsub
+
+      allocate( indMoI(i,k)%SubMatA%ni(   ncsub) )
+      allocate( indMoI(i,k)%SubMatA%nk(   ncsub) )
+      allocate( indMoI(i,k)%SubMatA%CC(   ncsub) )
+      allocate( indMoI(i,k)%SubMatA%RInd( ncsub) )
+
+      allocate( indMoI(i,k)%SubMatB%ni(   ncsub) )
+      allocate( indMoI(i,k)%SubMatB%nk(   ncsub) )
+      allocate( indMoI(i,k)%SubMatB%CC(   ncsub) )
+      allocate( indMoI(i,k)%SubMatB%RInd( ncsub) )
+
+      icsub = 0
+      do kka = -Nspec_z/2 + 1 + kkc*(1-IkkcNeg),  Nspec_z/2 - 1 + kkc*IkkcNeg
+        do iia = -Nspec_x/2 + 1 + iic,  Nspec_x/2 - 1
+
+          icsub = icsub + 1
+
+          iib = iic - iia
+          kkb = kkc - kka
+
+          indMoI(i,k)%SubMatA%ni(icsub) = iia
+          indMoI(i,k)%SubMatA%nk(icsub) = kka
+          indMoI(i,k)%SubMatA%CC(icsub) = isign(1,iia)
+
+          ! making all the k indexes positive
+          i_tmp = isign(1,iia)*iia*2 + 1
+          k_tmp = isign(1,iia)*kka + 1 + Nspec_z * ( 1 - max(isign(1, isign(1,iia)*kka), 0) )
+
+          indMoI(i,k)%SubMatA%RInd(icsub) = (Nspec_x+2) * (k_tmp-1) + i_tmp
+
+          indMoI(i,k)%SubMatB%ni(icsub) = iib
+          indMoI(i,k)%SubMatB%nk(icsub) = kkb
+          indMoI(i,k)%SubMatB%CC(icsub) = isign(1,iib)
+
+          i_tmp = isign(1,iib)*iib*2 + 1
+          k_tmp = isign(1,iib)*kkb + 1 + Nspec_z * ( 1 - max(isign(1, isign(1,iib)*kkb), 0) )
+
+          indMoI(i,k)%SubMatB%RInd(icsub) = (Nspec_x+2) * (k_tmp-1) + i_tmp
+
+          if (myid==0) then
+            write(*,*) "target kkc = ", indMoI(i,k)%NZoI, " max|kka|=", maxval(abs(indMoI(i,k)%SubMatA%nk)), &
+                      " max|kkb| (implied) can exceed if kkc is 16"
+          end if
+
+
+
+        end do
+      end do
+
+    end do
+  end do
+
+end subroutine
+
+
+subroutine trd_alloc_setup
+  use declaration
+  implicit none
+
+  integer :: NRplxz
+
+  NRplxz = (Nspec_x+2) * Nspec_z
+
+  allocate( RBf_u1(NRplxz, PLoINumEx  , 2), u1pl_tmp(NRplxz), s1pl_tmp(NRplxz) )
+  allocate( RBf_u2(NRplxz, PLoINumEx-1, 2), u2pl_tmp(NRplxz), s2pl_tmp(NRplxz) )
+  allocate( RBf_u3(NRplxz, PLoINumEx  , 2), u3pl_tmp(NRplxz), s3pl_tmp(NRplxz) )
+  allocate( RBf_pr(NRplxz, PLoINumEx  , 2) )
+
+  allocate( u1A_Re(NRplxz), u1A_Im(NRplxz), s1A_Re(NRplxz), s1A_Im(NRplxz) )
+  allocate( u2A_Re(NRplxz), u2A_Im(NRplxz), s2A_Re(NRplxz), s2A_Im(NRplxz) )
+  allocate( u3A_Re(NRplxz), u3A_Im(NRplxz), s3A_Re(NRplxz), s3A_Im(NRplxz) )
+
+  allocate( u1B_Re(NRplxz), u1B_Im(NRplxz) )
+  allocate( u2B_Re(NRplxz), u2B_Im(NRplxz), s2B_Re(NRplxz), s2B_Im(NRplxz) )
+  allocate( u3B_Re(NRplxz), u3B_Im(NRplxz) )
+
+  allocate( ka_x(NRplxz), ka_z(NRplxz) )
+
+  allocate( convs_uu(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_uv(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_uw(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_vu(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_vv(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_vw(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_wu(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_wv(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+  allocate( convs_ww(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
+
+  allocate( buff_fold(3,4,4, 0:Nspec_x/2-1, 0:Nspec_z/2-1) )
+  allocate( buff_fib (3,4,4, MoINumt) )
+
+  
+
+  ! allocate(u1_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  ! allocate(u2_ind(NRplxz, jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  ! allocate(u3_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+
+
 end subroutine
