@@ -444,7 +444,7 @@ subroutine finalize(u1,u2,u3,p,div,myid,status,ierr)
   call modes_to_planes_UVP(u3PL,u3,2,nyu,nyu_LB,myid,status,ierr)
   call modes_to_planes_UVP(ppPL, p,3,nyp,nyp_LB,myid,status,ierr)
 
-  call record_map(u1PL,u2PL,u3PL,myid)
+  call record_map(myid)
   call record_out(u1,myid)
   
 

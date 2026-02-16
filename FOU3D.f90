@@ -2385,6 +2385,9 @@ subroutine record_map(myid)
   character(len=256):: fnameList
   character(len=256):: output, map_output
 
+  integer :: n_planes, idx
+  integer, allocatable :: jpl_list(:)
+
 
   NRplxz = (Nspec_x+2) * Nspec_z
   Ntx = Nspec_x
@@ -2430,20 +2433,46 @@ subroutine record_map(myid)
   ! write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
   ! write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
 
-  if (myid == 0) then
-    write(*,*) "CHECK Ntz =", Ntz, "  Ntz/2-1 =", Ntz/2-1
-    write(*,*) "max |nk| =", maxval(abs(indMoI(i,k)%SubMatA%nk(:)))
-  end if
 
 
+  ! ----- Building lists of what PLoI each rank owns ----- !
+  n_planes = 0 
+  do jpl = 1, PLoINum
+    j   = NYoI(jpl)
+    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then
+      n_planes = n_planes + 1
+    end if 
+  end do 
 
+  allocate(jpl_list(n_planes))
+
+  idx = 0
+  do jpl = 1, PLoINum
+    j   = NYoI(jpl)
+    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then 
+      idx = idx + 1
+      jpl_list(idx) = jpl
+    end if 
+  end do 
+
+
+  do i = 0, np-1
+    if (myid == i) then
+      write(6,*) "Rank", myid, "owns planes:", jpl_list
+    end if
+  end do
 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
   Do whiChn = LowChn, UppChn
     it_moi = 0
-    do jpl = 1, PLoINum
+    ! do jpl = 1, PLoINum
+    do idx = 1, n_planes
+      jpl = jpl_list(idx)
+      j   = NYoI(jpl)
+      jbf = buffIndj(jpl)
+
       if (whiChn == LowChn) then
           write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
       else
@@ -2703,7 +2732,6 @@ subroutine record_map(myid)
 
           deallocate(buff_EP, buff_Re, buff_Im)
 
-
         end do
       end do
     end do
@@ -2713,14 +2741,20 @@ subroutine record_map(myid)
 
   print *, 'Begin writing'
 
-  do jpl = 1,PLoINum
+  ! do jpl = 1,PLoINum
+
+  do idx = 1, n_planes
+    jpl = jpl_list(idx)
+    j   = NYoI(jpl)
     write(extnkx,'(i3.3)') MoINumX
     write(extnkz,'(i3.3)') MoINumZ
     write(extny ,'(i3.3)') int(yPLoi(jpl))
 
+    output = 'output'
+    map_output = 'map_output'
+
     fnameList = trim(output)//'/'//trim(map_output)//'/TRD_'//extnkx//'_'//extnkz//'_'//extny//'.dat'
 
-    
     open(unit=50, file=fnameList, form='unformatted')
     write(50) Re, alp, bet, mpgx, Ntx, Ntz
     write(50) NYoI(jpl), yPLoi(jpl)

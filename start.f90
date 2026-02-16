@@ -657,6 +657,25 @@ end if
     call trd_alloc_setup
   end if 
 
+  call MPI_Bcast(PLoINum,  1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_Bcast(inoutunit,1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid /= 0) then
+      if (allocated(NYoI))     deallocate(NYoI)
+      if (allocated(yPLoi))    deallocate(yPLoi)
+      if (allocated(buffIndj)) deallocate(buffIndj)
+
+      allocate(NYoI(PLoINum))
+      allocate(yPLoi(PLoINum))
+      allocate(buffIndj(PLoINum+1))
+  end if
+
+  call MPI_Bcast(NYoI,     PLoINum,   MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_Bcast(yPLoi,    PLoINum,   MPI_REAL8,   0, MPI_COMM_WORLD, ierr)
+  call MPI_Bcast(buffIndj, PLoINum+1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  
+
   ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
   ! if (myid == 0) then
   !   write(*,*) 'Reading in nonlinear interaction list'
@@ -2702,8 +2721,8 @@ subroutine init_fib
   integer, allocatable :: fibo(:), fibSum(:)
 
   ! matching variables in TRD_V2
-  nxf = Ngal_x 
-  nzf = Ngal_z
+  nxf = Nspec_x 
+  nzf = Nspec_z
   nyf = nyv
 
   ! write(6,*) nxf,nzf, nyf
@@ -2779,13 +2798,13 @@ subroutine init_fib
       end if
   end do
 
-  write(6,*) 'alp bet =', alp, bet, nx_trd, nz_trd
+  ! write(6,*) 'alp bet =', alp, bet, nx_trd, nz_trd
 
-  write(*,*) "DBG: nzf=", nzf, " nz_trd=", nz_trd, " Nspec_z=", Nspec_z
-  write(*,*) "DBG: MoINumZ=", MoINumZ
-  write(*,*) "DBG: min/max NZoI=", minval(NZoI), maxval(NZoI), " max|NZoI|=", maxval(abs(NZoI))
-  write(*,*) "DBG: Ntz/2-1=", Nspec_z/2 - 1
-  if (maxval(abs(NZoI)) > Nspec_z/2 - 1) stop "BUG: NZoI contains out-of-range kz"
+  ! write(*,*) "DBG: nzf=", nzf, " nz_trd=", nz_trd, " Nspec_z=", Nspec_z
+  ! write(*,*) "DBG: MoINumZ=", MoINumZ
+  ! write(*,*) "DBG: min/max NZoI=", minval(NZoI), maxval(NZoI), " max|NZoI|=", maxval(abs(NZoI))
+  ! write(*,*) "DBG: Ntz/2-1=", Nspec_z/2 - 1
+  ! if (maxval(abs(NZoI)) > Nspec_z/2 - 1) stop "BUG: NZoI contains out-of-range kz"
 
 
 
@@ -2821,6 +2840,8 @@ subroutine init_planes_of_interest
 
   use declaration
   implicit none
+  include 'mpif.h'
+  integer status(MPI_STATUS_SIZE),ierr,myid
 
   integer :: i
   integer :: tmpInt(2)
@@ -3008,13 +3029,6 @@ subroutine init_triads(myid)
           k_tmp = isign(1,iib)*kkb + 1 + Nspec_z * ( 1 - max(isign(1, isign(1,iib)*kkb), 0) )
 
           indMoI(i,k)%SubMatB%RInd(icsub) = (Nspec_x+2) * (k_tmp-1) + i_tmp
-
-          if (myid==0) then
-            write(*,*) "target kkc = ", indMoI(i,k)%NZoI, " max|kka|=", maxval(abs(indMoI(i,k)%SubMatA%nk)), &
-                      " max|kkb| (implied) can exceed if kkc is 16"
-          end if
-
-
 
         end do
       end do
