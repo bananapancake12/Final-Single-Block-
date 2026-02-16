@@ -152,12 +152,13 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     call modes_to_planes_UVP(ppPL,p,3,nyp,nyp_LB,myid,status,ierr)
     !call modes_to_planes_UVP(ppPL,div,3,myid,status,ierr) !Output divergence for checking
     call record_out(u1,myid)
+    call record_map(myid)
   end if
 
 ! if (myid == 4) then
   ! ! u1PL
   ! u1PL(:,:,28) = 0
-  ! u1PL(:,129,28) = 0
+  ! u1PL(:,129,28)
   ! u1PL(15,15,28) = 1
   ! u1PL(39,3,28) = 2
   ! u1PL(67,187,28) = 3
@@ -2462,6 +2463,25 @@ subroutine record_map(myid)
     end if
   end do
 
+
+  ! --- Fill RBf_* from in-memory DNS fields for the planes this rank owns ---
+  do idx = 1, n_planes
+    jpl = jpl_list(idx)
+    j   = NYoI(jpl)
+    jbf = buffIndj(jpl)
+
+    ! Lower half: store the plane at j
+    RBf_u1(:, jbf, LowChn) = u1_ind(:, j)
+    RBf_u3(:, jbf, LowChn) = u3_ind(:, j)
+    RBf_u2(:, jbf, LowChn) = u2_ind(:, j)
+
+    ! Upper half: mirror plane index (same convention your old reader used)
+    RBf_u1(:, jbf, UppChn) = u1_ind(:, nyf - j)
+    RBf_u3(:, jbf, UppChn) = u3_ind(:, nyf - j)
+    RBf_u2(:, jbf, UppChn) = u2_ind(:, nyf - j)
+  end do
+
+
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
@@ -2471,6 +2491,8 @@ subroutine record_map(myid)
     do idx = 1, n_planes
       jpl = jpl_list(idx)
       j   = NYoI(jpl)
+      jbf = buffIndj(jpl)
+
       jbf = buffIndj(jpl)
 
       if (whiChn == LowChn) then
@@ -2753,14 +2775,16 @@ subroutine record_map(myid)
     output = 'output'
     map_output = 'map_output'
 
-    fnameList = trim(output)//'/'//trim(map_output)//'/TRD_'//extnkx//'_'//extnkz//'_'//extny//'.dat'
+    write(ext4,'(i5.5)') int(100d0*(t))!int(t)!
+
+    fnameList = trim(output)//'/'//trim(map_output)//'/TRD_'//extnkx//'_'//extnkz//'_'//extny//'_t'//ext4//'.dat'
 
     open(unit=50, file=fnameList, form='unformatted')
     write(50) Re, alp, bet, mpgx, Ntx, Ntz
     write(50) NYoI(jpl), yPLoi(jpl)
     write(50) NXfib(:), NZfib(:)
     write(50) NXoI(:), NZoI(:)
-    write(50) nsamp
+    write(50) 1
     do i = 1,MoINumX
       do k = 1, MoINumZ
         write(50)

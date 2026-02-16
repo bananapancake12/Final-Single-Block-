@@ -650,29 +650,42 @@ end if
   spP  = 0d0
 
   ! initialising map outputs 
-  if (myid ==0) then
+  !if (myid ==0) then
     call init_fib
     call init_planes_of_interest
     call init_triads(myid)
     call trd_alloc_setup
-  end if 
+  !end if 
 
-  call MPI_Bcast(PLoINum,  1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  call MPI_Bcast(inoutunit,1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_Bcast(PLoINum,  1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_Bcast(inoutunit,1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(MoINumX, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(MoINumZ, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
 
-  if (myid /= 0) then
-      if (allocated(NYoI))     deallocate(NYoI)
-      if (allocated(yPLoi))    deallocate(yPLoi)
-      if (allocated(buffIndj)) deallocate(buffIndj)
 
-      allocate(NYoI(PLoINum))
-      allocate(yPLoi(PLoINum))
-      allocate(buffIndj(PLoINum+1))
-  end if
+  ! if (myid /= 0) then
+  !     allocate(NYoI(PLoINum))
+  !     allocate(yPLoi(PLoINum))
+  !     allocate(buffIndj(PLoINum+1))
+  !     allocate(NXfib(MoINumX), KXfib(MoINumX), NXoI(MoINumX))
+  !     allocate(NZfib(MoINumZ), KZfib(MoINumZ), NZoI(MoINumZ))
+  !     allocate(NXlim(MoINumX,2), NZlim(MoINumZ,2))
+  ! end if
 
-  call MPI_Bcast(NYoI,     PLoINum,   MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  call MPI_Bcast(yPLoi,    PLoINum,   MPI_REAL8,   0, MPI_COMM_WORLD, ierr)
-  call MPI_Bcast(buffIndj, PLoINum+1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_Bcast(NYoI,     PLoINum,   MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_Bcast(yPLoi,    PLoINum,   MPI_REAL8,   0, MPI_COMM_WORLD, ierr)
+  ! call MPI_Bcast(buffIndj, PLoINum+1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  ! call MPI_BCAST(NXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(KXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(NXoI , MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(NXlim, 2*MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  ! call MPI_BCAST(NZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(KZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(NZoI , MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  ! call MPI_BCAST(NZlim, 2*MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
 
   
 
