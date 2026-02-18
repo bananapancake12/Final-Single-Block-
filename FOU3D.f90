@@ -2115,33 +2115,7 @@ subroutine record_out(u1,myid)
       end do
       close(10)
 
-      ! !!!!!!!!!!!!!   Original u3    !!!!!!!!!!!!!
-      ! fnameima = 'output/u3_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
-      ! open(10,file=fnameima,form='unformatted')
-      ! write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
-      ! write(10) N
-      ! write(10) yu,ddthetavi,dthdyu
-      ! nx = Nspec_x+2
-      ! nz = Nspec_z
-      ! allocate(buffSR(nx,nz))
-      ! do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
-      ! call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
-      ! write(10) j,3,nx,nz,yu(j),buffSR
-      ! end do
-      ! deallocate(buffSR)
-      ! do iproc = 1,np-1
-      ! nx = Nspec_x+2
-      ! nz = Nspec_z
-      ! allocate(buffSR(nx,nz))
-      ! do j = limPL_incw(ugrid,1,iproc),limPL_incw(ugrid,2,iproc)
-      !     call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,status,ierr)
-      !     write(10) j,3,nx,nz,yu(j),buffSR
-      ! end do
-      ! deallocate(buffSR)
-      ! end do
-      ! close(10)
-
-      !!!!!!!!!!!!!   NEW u3    !!!!!!!!!!!!!
+      !!!!!!!!!!!!!   Original u3    !!!!!!!!!!!!!
       fnameima = 'output/u3_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
       open(10,file=fnameima,form='unformatted')
       write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
@@ -2152,7 +2126,7 @@ subroutine record_out(u1,myid)
       allocate(buffSR(nx,nz))
       do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
       call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
-      write(10) j,3,nx,1,yu(j),buffSR(:,1)
+      write(10) j,3,nx,nz,yu(j),buffSR
       end do
       deallocate(buffSR)
       do iproc = 1,np-1
@@ -2161,11 +2135,37 @@ subroutine record_out(u1,myid)
       allocate(buffSR(nx,nz))
       do j = limPL_incw(ugrid,1,iproc),limPL_incw(ugrid,2,iproc)
           call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,status,ierr)
-          write(10) j,3,nx,1,yu(j),buffSR(:,1)
+          write(10) j,3,nx,nz,yu(j),buffSR
       end do
       deallocate(buffSR)
       end do
       close(10)
+
+      ! !!!!!!!!!!!!!   NEW u3    !!!!!!!!!!!!!
+      ! fnameima = 'output/u3_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
+      ! open(10,file=fnameima,form='unformatted')
+      ! write(10) t,Re,alp,bet,mpgx,nband,iter,dummint
+      ! write(10) N
+      ! write(10) yu,ddthetavi,dthdyu
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
+      ! call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
+      ! write(10) j,3,nx,1,yu(j),buffSR(:,1)
+      ! end do
+      ! deallocate(buffSR)
+      ! do iproc = 1,np-1
+      ! nx = Nspec_x+2
+      ! nz = Nspec_z
+      ! allocate(buffSR(nx,nz))
+      ! do j = limPL_incw(ugrid,1,iproc),limPL_incw(ugrid,2,iproc)
+      !     call MPI_RECV(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,status,ierr)
+      !     write(10) j,3,nx,1,yu(j),buffSR(:,1)
+      ! end do
+      ! deallocate(buffSR)
+      ! end do
+      ! close(10)
       ! !!!!!!!!!!!!!    p     !!!!!!!!!!!!!
       ! fnameima = 'output/p_'//ext1//'x'//ext2//'x'//ext3//'_t'//ext4//'.dat'
       ! open(10,file=fnameima,form='unformatted')
@@ -2366,10 +2366,13 @@ subroutine record_map(myid)
   integer :: it_moi, jpl, jbf
   integer :: k_ind, IkkcNeg
   integer :: ric, ncs
-  integer :: Ntx, Ntz, f, s
+  integer :: Ntx, Ntz, f, s, jL, jU
+
+  integer :: n_planesU, n_here
+
 
   integer :: ii, kk, ind, sigCase
-  integer :: NxUpp, NzUpp
+  integer :: NxUpp, NzUpp, jplex
   integer :: buffInt   ! if you use merge() with 1d0 below
   integer :: nsamp, isamp
 
@@ -2387,7 +2390,7 @@ subroutine record_map(myid)
   character(len=256):: output, map_output
 
   integer :: n_planes, idx
-  integer, allocatable :: jpl_list(:)
+  integer, allocatable :: jpl_listL(:), jpl_listU(:)
 
 
   NRplxz = (Nspec_x+2) * Nspec_z
@@ -2445,65 +2448,158 @@ subroutine record_map(myid)
     end if 
   end do 
 
-  allocate(jpl_list(n_planes))
+  allocate(jpl_listL(n_planes))
 
   idx = 0
   do jpl = 1, PLoINum
     j   = NYoI(jpl)
     if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then 
       idx = idx + 1
-      jpl_list(idx) = jpl
+      jpl_listL(idx) = jpl
     end if 
   end do 
 
+  ! --- Upper list: decide ownership using mirrored physical plane jU
+  n_planesU = 0
+  do jpl = 1, PLoINum
+    jU = nyf - NYoI(jpl) -1
+    write(6,*) "JU", jU, "nyf", nyf
+    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) n_planesU = n_planesU + 1
+  end do
+  allocate(jpl_listU(n_planesU))
 
-  do i = 0, np-1
-    if (myid == i) then
-      write(6,*) "Rank", myid, "owns planes:", jpl_list
+  idx = 0
+  do jpl = 1, PLoINum
+    jU = nyf - NYoI(jpl) -1
+    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
+      idx = idx + 1
+      jpl_listU(idx) = jpl
+      ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
     end if
   end do
 
+  call MPI_BARRIER(MPI_COMM_WORLD, ierr)
+  do i = 0, np-1
+    if (myid == i) then
+      write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL
+      write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU
+    end if
+  end do
+  call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
-  ! --- Fill RBf_* from in-memory DNS fields for the planes this rank owns ---
-  do idx = 1, n_planes
-    jpl = jpl_list(idx)
-    j   = NYoI(jpl)
-    jbf = buffIndj(jpl)
+  ! After jpl_list is built, may need to send and recive any planes we dont already own...
+  ! ---- ugrid halo exchange for u1,u3 (always, if neighbour exists) ----
+  if (myid /= np-1) then
+    call MPI_SENDRECV( u1_ind(:, jgal(ugrid,2)),   NRplxz, MPI_REAL8, myid+1, 101, &
+                      u1_ind(:, jgal(ugrid,2)+1), NRplxz, MPI_REAL8, myid+1, 102, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+    call MPI_SENDRECV( u3_ind(:, jgal(ugrid,2)),   NRplxz, MPI_REAL8, myid+1, 201, &
+                      u3_ind(:, jgal(ugrid,2)+1), NRplxz, MPI_REAL8, myid+1, 202, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+  end if
 
-    ! Lower half: store the plane at j
-    RBf_u1(:, jbf, LowChn) = u1_ind(:, j)
-    RBf_u3(:, jbf, LowChn) = u3_ind(:, j)
-    RBf_u2(:, jbf, LowChn) = u2_ind(:, j)
+  if (myid /= 0) then
+    call MPI_SENDRECV( u1_ind(:, jgal(ugrid,1)),   NRplxz, MPI_REAL8, myid-1, 102, &
+                      u1_ind(:, jgal(ugrid,1)-1), NRplxz, MPI_REAL8, myid-1, 101, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+    call MPI_SENDRECV( u3_ind(:, jgal(ugrid,1)),   NRplxz, MPI_REAL8, myid-1, 202, &
+                      u3_ind(:, jgal(ugrid,1)-1), NRplxz, MPI_REAL8, myid-1, 201, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+  end if
 
-    ! Upper half: mirror plane index (same convention your old reader used)
-    RBf_u1(:, jbf, UppChn) = u1_ind(:, nyf - j)
-    RBf_u3(:, jbf, UppChn) = u3_ind(:, nyf - j)
-    RBf_u2(:, jbf, UppChn) = u2_ind(:, nyf - j)
+  if (myid /= np-1) then
+    call MPI_SENDRECV( u2_ind(:, jgal(vgrid,2)),   NRplxz, MPI_REAL8, myid+1, 301, &
+                      u2_ind(:, jgal(vgrid,2)+1), NRplxz, MPI_REAL8, myid+1, 302, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+  end if
+
+  if (myid /= 0) then
+    call MPI_SENDRECV( u2_ind(:, jgal(vgrid,1)),   NRplxz, MPI_REAL8, myid-1, 302, &
+                      u2_ind(:, jgal(vgrid,1)-1), NRplxz, MPI_REAL8, myid-1, 301, &
+                      MPI_COMM_WORLD, MPI_STATUS_IGNORE, ierr )
+  end if
+
+  RBf_u1 = 0.0d0
+  RBf_u2 = 0.0d0
+  RBf_u3 = 0.0d0
+
+  ! if(myid == 0) then
+  !   do i = 1, PLoINumEx
+  !     write(6,*) "jList_Buff", jList_Buff(i)
+  !   end do
+  ! end if
+
+  do whiChn = LowChn, UppChn
+    do jplex = 1, PLoINumEx
+      jL = jList_Buff(jplex)
+
+      ! --- mirror indices that match TRDv9 ---
+      if (whiChn == LowChn) then
+        jU = jL                 ! u1/u3 index
+        j  = jL                 ! u2 index (same on low side)
+      else
+        jU = nyf - jL           ! u1/u3 mirror (TRDv9)
+        j  = (nyf - 1) - jL      ! u2 mirror uses nnc=nyf-1 (TRDv9)
+        ! write(6,*) "j", j, "jL", jL-1
+      end if
+
+      ! u1/u3 live on ugrid -> use jU
+      if (jU >= jgal(ugrid,1)-1 .and. jU <= jgal(ugrid,2)+1) then
+        RBf_u1(:, jplex, whiChn) = u1_ind(:, jU)
+        RBf_u3(:, jplex, whiChn) = u3_ind(:, jU)
+      end if
+
+      ! u2 lives on vgrid -> use j (nnc-mirror in upper)
+      if (jplex <= PLoINumEx-1) then
+        if (j >= jgal(vgrid,1)-1 .and. j <= jgal(vgrid,2)+1) then
+          RBf_u2(:, jplex, whiChn) = u2_ind(:, j)
+        end if
+      end if
+    end do
   end do
 
+  RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
+
+  ! if( myid == 7) then
+  !   write(6,*) "RBf_u2(:,jplex,UppChn)", RBf_u2(1:100,1,UppChn)
+  ! end if 
 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
   Do whiChn = LowChn, UppChn
     it_moi = 0
-    ! do jpl = 1, PLoINum
-    do idx = 1, n_planes
-      jpl = jpl_list(idx)
+    
+    if (whiChn == LowChn) then
+      n_here = n_planes
+    else
+      n_here = n_planesU
+    end if
+
+    do idx = 1, n_here
+
+      if (whiChn == LowChn) then
+        jpl = jpl_listL(idx)
+      else
+        jpl = jpl_listU(idx)
+      end if
+
       j   = NYoI(jpl)
       jbf = buffIndj(jpl)
+      !write(6,*) "jbf", jbf
 
-      jbf = buffIndj(jpl)
-
+      ! write(6,'(A,5I6)') 'DBG jpl idx jbf NYoI(jpl) jList_Buff(jbf)=', &
+      !              jpl, idx, jbf, NYoI(jpl), jList_Buff(jbf)
+    
       if (whiChn == LowChn) then
           write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
       else
           write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Upper channel: Plane #', jpl, 'of', PLoINum
       end if
-  
-      j   = NYoI(jpl)
-      jbf = buffIndj(jpl)
-      !Storing u, v, w and the d/dy for that plane
+
+
+      !Storing u, v, w and the d/dy for that plan
+
       u1pl_tmp =   RBf_u1(:,jbf  ,whiChn)
       s1pl_tmp = ( RBf_u1(:,jbf+1,whiChn) - RBf_u1(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
       u2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
@@ -2513,12 +2609,35 @@ subroutine record_map(myid)
       s3pl_tmp = ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
 
 
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !   write(6,*)  "s1pl_tmp", ( RBf_u1(1:100,jbf+1,whiChn) - RBf_u1(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      ! end if 
+
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !   write(6,*)  "u2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
+      !           & + RBf_u2(1:100,jbf-1,whiChn) * (yv(j  )-yu(j)) ) / (yv(j)-yv(j-1))
+      ! end if 
+      
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !     write(6,*)  "s2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) - RBf_u2(1:100,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
+      ! end if 
+
+            if (jbf ==8 ) then 
+      write(6,*) "whiChn", whiChn
+          write(6,*)  "s3pl_tmp", ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      end if 
+
+
       do i = 1, MoINumX
         do k = 1, 2*MoINumZ
           ! if (mod(k, 2) == 1) cycle !!!!!!!!!!!!!!!!!!!!!!!!!
           
           it_moi = it_moi + 1
           k_ind = (k + 1) / 2
+          ! write(6,*) "k_ind", k_ind
           IkkcNeg = 1-mod(k,2)
           ! write(*,"(8X,A6,I3,1X,A2,1X,I3)") 'mode #', (i-1)*MoINumZ*2+k, 'of', MoINumX*2*MoINumZ
           ric    = indMoI(i,k)%SubMatA%RIndC
@@ -2632,6 +2751,15 @@ subroutine record_map(myid)
           convs_uu(1:4,1:4, jpl, i, k_ind, :) = convs_uu(1:4,1:4, jpl, i, k_ind, :) + buff_fib(1, 1:4,1:4, :)
           convs_uv(1:4,1:4, jpl, i, k_ind, :) = convs_uv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
           convs_uw(1:4,1:4, jpl, i, k_ind, :) = convs_uw(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :) 
+
+          ! if (myid==0 .and. jpl==1 .and. i==6 .and. k_ind==6) then
+          !   write(6,*) 'DBG buff_fold sums sigCase 1-4:', &
+          !     sum(abs(buff_fold(:,: ,1,:,:))), &
+          !     sum(abs(buff_fold(:,: ,2,:,:))), &
+          !     sum(abs(buff_fold(:,: ,3,:,:))), &
+          !     sum(abs(buff_fold(:,: ,4,:,:))), "whiChn", whiChn
+          ! endif
+
 
           ! write(*,*) maxval(convs_uu(1, jpl, i, k_ind, :))
           ! if (i==6 .and. k==12) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2754,19 +2882,46 @@ subroutine record_map(myid)
 
           deallocate(buff_EP, buff_Re, buff_Im)
 
+          
+
+
         end do
       end do
     end do
   End Do
 
+  ! write(6,*) "size(convs_ww)", size(convs_ww)
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uu, size(convs_uu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uv, size(convs_uv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uw, size(convs_uw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vu, size(convs_vu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vv, size(convs_vv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vw, size(convs_vw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wu, size(convs_wu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv, size(convs_wv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww, size(convs_ww), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  if (myid ==0) then
+    write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
+  end if 
+
   write(*,*) ''
 
   print *, 'Begin writing'
 
-  ! do jpl = 1,PLoINum
+  ! write(*,'(A,I4,A,1PE12.4,A,1PE12.4)') 'jpl=', jpl, &
+  ! ' max|uu|=', maxval(abs(convs_uu(:,: ,jpl,:,:,:))), &
+  ! ' max|vv|=', maxval(abs(convs_vv(:,: ,jpl,:,:,:)))
 
-  do idx = 1, n_planes
-    jpl = jpl_list(idx)
+
+  ! do jpl = 1,PLoINum
+  nsamp = 1
+
+  do idx = 1, n_planesU
+    jpl = jpl_listU(idx)
     j   = NYoI(jpl)
     write(extnkx,'(i3.3)') MoINumX
     write(extnkz,'(i3.3)') MoINumZ
@@ -2784,7 +2939,7 @@ subroutine record_map(myid)
     write(50) NYoI(jpl), yPLoi(jpl)
     write(50) NXfib(:), NZfib(:)
     write(50) NXoI(:), NZoI(:)
-    write(50) 1
+    write(50) nsamp
     do i = 1,MoINumX
       do k = 1, MoINumZ
         write(50)
@@ -2805,6 +2960,8 @@ subroutine record_map(myid)
     close(50)
   end do
 
-  
+  call MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
+    
 
 end subroutine 
