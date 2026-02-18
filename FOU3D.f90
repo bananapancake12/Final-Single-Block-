@@ -2535,7 +2535,7 @@ subroutine record_map(myid)
       ! --- mirror indices that match TRDv9 ---
       if (whiChn == LowChn) then
         jU = jL                 ! u1/u3 index
-        j  = jL-1                 ! u2 index (same on low side)
+        j  = jL                 ! u2 index (same on low side)
       else
         jU = nyf - jL           ! u1/u3 mirror (TRDv9)
         j  = (nyf - 1) - jL      ! u2 mirror uses nnc=nyf-1 (TRDv9)
@@ -2559,10 +2559,10 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  ! if( myid == 0) then
+  if( myid == 0) then
 
-  !   write(6,*) "RBf_u1(:,jplex,LowChn)", RBf_u1(1:100,1,LowChn)
-  ! end if 
+    write(6,*) "RBf_u2(:,jplex,LowChn)", RBf_u2(1:100,1,LowChn)
+  end if 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
