@@ -2559,10 +2559,10 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  if( myid == 0) then
+  ! if( myid == 0) then
 
-    write(6,*) "RBf_u2(:,jplex,LowChn)", RBf_u2(1:100,1,LowChn)
-  end if 
+  !   write(6,*) "RBf_u2(:,jplex,LowChn)", RBf_u2(1:100,1,LowChn)
+  ! end if 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
@@ -2620,12 +2620,12 @@ subroutine record_map(myid)
       ! end if 
 
       
-      ! if (jbf ==8 ) then 
-      ! write(6,*) "whiChn", whiChn
-      !     write(6,*) "u1pl_tmp",  RBf_u1(1:100,jbf  ,whiChn)
-      !     write(6,*) "RBf_u3", RBf_u3(1:100,jbf  ,whiChn)
-      !     ! write(6,*)  "s3pl_tmp", ( RBf_u3(1:100,jbf+1,whiChn) - RBf_u3(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
-      ! end if 
+      if (jbf ==8 ) then 
+      write(6,*) "whiChn", whiChn
+          ! write(6,*) "u1pl_tmp",  RBf_u1(1:100,jbf  ,whiChn)
+          write(6,*) "RBf_u3", RBf_u3(1:100,jbf  ,whiChn)
+          ! write(6,*)  "s3pl_tmp", ( RBf_u3(1:100,jbf+1,whiChn) - RBf_u3(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      end if 
 
 
       do i = 1, MoINumX
@@ -2885,6 +2885,23 @@ subroutine record_map(myid)
       end do
     end do
   End Do
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uu, size(convs_uu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uv, size(convs_uv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uw, size(convs_uw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vu, size(convs_vu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vv, size(convs_vv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vw, size(convs_vw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wu, size(convs_wu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv, size(convs_wv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww, size(convs_ww), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+
+  if (myid ==0) then
+    write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
+  end if 
+
 
   write(*,*) ''
 
