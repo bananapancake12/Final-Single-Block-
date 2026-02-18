@@ -2559,9 +2559,10 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  if( myid == 7) then
-    write(6,*) "RBf_u2(:,jplex,UppChn)", RBf_u2(1:100,1,UppChn)
-  end if 
+  ! if( myid == 0) then
+
+  !   write(6,*) "RBf_u1(:,jplex,LowChn)", RBf_u1(1:100,1,LowChn)
+  ! end if 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
@@ -2601,6 +2602,30 @@ subroutine record_map(myid)
       s2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) - RBf_u2(:,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
       u3pl_tmp =   RBf_u3(:,jbf  ,whiChn)
       s3pl_tmp = ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+
+      ! if (jbf ==8 ) then 
+      !     write(6,*) "whiChn", whiChn
+      !     write(6,*)  "s1pl_tmp", ( RBf_u1(1:100,jbf+1,whiChn) - RBf_u1(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      ! end if 
+
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !     write(6,*)  "u2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
+      !             & + RBf_u2(1:100,jbf-1,whiChn) * (yv(j  )-yu(j)) ) / (yv(j)-yv(j-1))
+      ! end if 
+
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !     write(6,*)  "s2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) - RBf_u2(1:100,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
+      ! end if 
+
+      
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !     write(6,*) "u1pl_tmp",  RBf_u1(1:100,jbf  ,whiChn)
+      !     write(6,*) "RBf_u3", RBf_u3(1:100,jbf  ,whiChn)
+      !     ! write(6,*)  "s3pl_tmp", ( RBf_u3(1:100,jbf+1,whiChn) - RBf_u3(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      ! end if 
 
 
       do i = 1, MoINumX
