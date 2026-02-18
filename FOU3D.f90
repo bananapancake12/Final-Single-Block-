@@ -2474,18 +2474,17 @@ subroutine record_map(myid)
     if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
       idx = idx + 1
       jpl_listU(idx) = jpl
-      ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
+      write(6,*) "jpl_listU(idx)", jpl_listU(idx)
     end if
   end do
 
-  call MPI_BARRIER(MPI_COMM_WORLD, ierr)
+
   do i = 0, np-1
     if (myid == i) then
-      write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL
-      write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU
+      write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
+      write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
     end if
   end do
-  call MPI_BARRIER(MPI_COMM_WORLD, ierr)
 
   ! After jpl_list is built, may need to send and recive any planes we dont already own...
   ! ---- ugrid halo exchange for u1,u3 (always, if neighbour exists) ----
@@ -2536,7 +2535,7 @@ subroutine record_map(myid)
       ! --- mirror indices that match TRDv9 ---
       if (whiChn == LowChn) then
         jU = jL                 ! u1/u3 index
-        j  = jL                 ! u2 index (same on low side)
+        j  = jL-1                 ! u2 index (same on low side)
       else
         jU = nyf - jL           ! u1/u3 mirror (TRDv9)
         j  = (nyf - 1) - jL      ! u2 mirror uses nnc=nyf-1 (TRDv9)
@@ -2560,10 +2559,9 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  ! if( myid == 7) then
-  !   write(6,*) "RBf_u2(:,jplex,UppChn)", RBf_u2(1:100,1,UppChn)
-  ! end if 
-
+  if( myid == 7) then
+    write(6,*) "RBf_u2(:,jplex,UppChn)", RBf_u2(1:100,1,UppChn)
+  end if 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
 
@@ -2586,10 +2584,7 @@ subroutine record_map(myid)
 
       j   = NYoI(jpl)
       jbf = buffIndj(jpl)
-      !write(6,*) "jbf", jbf
 
-      ! write(6,'(A,5I6)') 'DBG jpl idx jbf NYoI(jpl) jList_Buff(jbf)=', &
-      !              jpl, idx, jbf, NYoI(jpl), jList_Buff(jbf)
     
       if (whiChn == LowChn) then
           write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
@@ -2598,8 +2593,7 @@ subroutine record_map(myid)
       end if
 
 
-      !Storing u, v, w and the d/dy for that plan
-
+      !Storing u, v, w and the d/dy for that plane
       u1pl_tmp =   RBf_u1(:,jbf  ,whiChn)
       s1pl_tmp = ( RBf_u1(:,jbf+1,whiChn) - RBf_u1(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
       u2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
@@ -2609,35 +2603,12 @@ subroutine record_map(myid)
       s3pl_tmp = ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
 
 
-      ! if (jbf ==8 ) then 
-      ! write(6,*) "whiChn", whiChn
-      !   write(6,*)  "s1pl_tmp", ( RBf_u1(1:100,jbf+1,whiChn) - RBf_u1(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
-      ! end if 
-
-      ! if (jbf ==8 ) then 
-      ! write(6,*) "whiChn", whiChn
-      !   write(6,*)  "u2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) * (yu(j)-yv(j-1)) &
-      !           & + RBf_u2(1:100,jbf-1,whiChn) * (yv(j  )-yu(j)) ) / (yv(j)-yv(j-1))
-      ! end if 
-      
-      ! if (jbf ==8 ) then 
-      ! write(6,*) "whiChn", whiChn
-      !     write(6,*)  "s2pl_tmp", ( RBf_u2(1:100,jbf  ,whiChn) - RBf_u2(1:100,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
-      ! end if 
-
-            if (jbf ==8 ) then 
-      write(6,*) "whiChn", whiChn
-          write(6,*)  "s3pl_tmp", ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
-      end if 
-
-
       do i = 1, MoINumX
         do k = 1, 2*MoINumZ
           ! if (mod(k, 2) == 1) cycle !!!!!!!!!!!!!!!!!!!!!!!!!
           
           it_moi = it_moi + 1
           k_ind = (k + 1) / 2
-          ! write(6,*) "k_ind", k_ind
           IkkcNeg = 1-mod(k,2)
           ! write(*,"(8X,A6,I3,1X,A2,1X,I3)") 'mode #', (i-1)*MoINumZ*2+k, 'of', MoINumX*2*MoINumZ
           ric    = indMoI(i,k)%SubMatA%RIndC
@@ -2889,24 +2860,6 @@ subroutine record_map(myid)
       end do
     end do
   End Do
-
-  ! write(6,*) "size(convs_ww)", size(convs_ww)
-
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uu, size(convs_uu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uv, size(convs_uv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uw, size(convs_uw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vu, size(convs_vu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vv, size(convs_vv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vw, size(convs_vw), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wu, size(convs_wu), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv, size(convs_wv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww, size(convs_ww), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-
-  if (myid ==0) then
-    write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
-  end if 
 
   write(*,*) ''
 

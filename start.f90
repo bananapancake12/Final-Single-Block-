@@ -2736,7 +2736,7 @@ subroutine init_fib
   ! matching variables in TRD_V2
   nxf = Nspec_x 
   nzf = Nspec_z
-  nyf = nyv
+  nyf = nyv+2
 
   ! write(6,*) nxf,nzf, nyf
 
