@@ -3060,10 +3060,10 @@ subroutine trd_alloc_setup
 
   NRplxz = (Nspec_x+2) * Nspec_z
 
-  allocate( RBf_u1(NRplxz, PLoINumEx  , 2), u1pl_tmp(NRplxz), s1pl_tmp(NRplxz) )
-  allocate( RBf_u2(NRplxz, PLoINumEx-1, 2), u2pl_tmp(NRplxz), s2pl_tmp(NRplxz) )
-  allocate( RBf_u3(NRplxz, PLoINumEx  , 2), u3pl_tmp(NRplxz), s3pl_tmp(NRplxz) )
-  allocate( RBf_pr(NRplxz, PLoINumEx  , 2) )
+  allocate( RBf_u1(NRplxz, 0: PLoINumEx +1  , 2), u1pl_tmp(NRplxz), s1pl_tmp(NRplxz) )
+  allocate( RBf_u2(NRplxz, 0: PLoINumEx +1-1, 2), u2pl_tmp(NRplxz), s2pl_tmp(NRplxz) )
+  allocate( RBf_u3(NRplxz, 0: PLoINumEx +1  , 2), u3pl_tmp(NRplxz), s3pl_tmp(NRplxz) )
+  allocate( RBf_pr(NRplxz, 0: PLoINumEx +1  , 2) )
 
   allocate( u1A_Re(NRplxz), u1A_Im(NRplxz), s1A_Re(NRplxz), s1A_Im(NRplxz) )
   allocate( u2A_Re(NRplxz), u2A_Im(NRplxz), s2A_Re(NRplxz), s2A_Im(NRplxz) )

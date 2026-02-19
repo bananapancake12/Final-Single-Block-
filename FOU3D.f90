@@ -121,6 +121,10 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     write(6,*) "t=", MPI_Wtime() - t1,"=====> Modes to planes"
   end if
 
+  ! if(myid==5) then
+  !   write(6,*) "u1 cols", u1 ( jlim(1,ugrid),1:68 )
+  ! end if 
+
   !C! Shift 6 velocity fields into planes
   !!!!!!!!!!  modes to planes: !!!!!!!!!!
   call modes_to_planes_UVP ( u1PL,    u1,    ugrid,nyu,nyu_LB,myid,status,ierr)
@@ -129,6 +133,11 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
   call modes_to_planes_UVP ( u1PL_itp,u1_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
   call modes_to_planes_UVP ( u2PL_itp,u2_itp,ugrid,nyu,nyu_LB,myid,status,ierr)
   call modes_to_planes_UVP ( u3PL_itp,u3_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
+
+  ! if (myid ==0) then
+  !   write(6,*) "u1PL(1,1,j) before before ", u1PL(1:34,18,10)
+  ! end if 
+
 
 
   if(myid==0) then
@@ -151,8 +160,10 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     ppPL = 0d0
     call modes_to_planes_UVP(ppPL,p,3,nyp,nyp_LB,myid,status,ierr)
     !call modes_to_planes_UVP(ppPL,div,3,myid,status,ierr) !Output divergence for checking
+
+
     call record_out(u1,myid)
-    call record_map(myid)
+    !call record_map(myid)
   end if
 
 ! if (myid == 4) then
@@ -2392,6 +2403,11 @@ subroutine record_map(myid)
   integer :: n_planes, idx
   integer, allocatable :: jpl_listL(:), jpl_listU(:)
 
+  integer :: max_iia, max_kka
+  max_iia = 0
+  max_kka = 0
+
+
 
   NRplxz = (Nspec_x+2) * Nspec_z
   Ntx = Nspec_x
@@ -2432,11 +2448,14 @@ subroutine record_map(myid)
     end do
   end do
 
-  ! i = 27
-  ! k = 5
-  ! write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
-  ! write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
+  i = 27
+  k = 18
+  write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
+  write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
 
+  ! if (myid ==0) then
+  !   write(6,*) "u1_ind", u1_ind( 1:600, 8 )
+  ! end if 
 
 
   ! ----- Building lists of what PLoI each rank owns ----- !
@@ -2463,7 +2482,7 @@ subroutine record_map(myid)
   n_planesU = 0
   do jpl = 1, PLoINum
     jU = nyf - NYoI(jpl) -1
-    write(6,*) "JU", jU, "nyf", nyf
+    ! write(6,*) "JU", jU, "nyf", nyf
     if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) n_planesU = n_planesU + 1
   end do
   allocate(jpl_listU(n_planesU))
@@ -2474,7 +2493,7 @@ subroutine record_map(myid)
     if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
       idx = idx + 1
       jpl_listU(idx) = jpl
-      write(6,*) "jpl_listU(idx)", jpl_listU(idx)
+      ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
     end if
   end do
 
@@ -2559,9 +2578,29 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  ! if( myid == 0) then
+  if( myid == 0 ) then
+    write(*,*) "RBf_u1", RBf_u1( 543:600, 1, LowChn )
+  end if 
+
+
+  ! if( myid == 0 ) then
 
   !   write(6,*) "RBf_u2(:,jplex,LowChn)", RBf_u2(1:100,1,LowChn)
+  !   write(6,*) "RBf_u3(:,jplex,LowChn)", RBf_u3(1:100,1,LowChn)
+  !   write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  !   write(6,*) "RBf_u3(:,jplex,UppChn)", RBf_u3(1:100,1,UppChn)
+  ! end if 
+
+  ! write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  ! write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  ! write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  ! write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+
+  ! if( myid == 7 ) then
+  ! !   write(6,*) "RBf_u2(:,jplex,LowChn)", RBf_u2(1:100,1,LowChn)
+  !   write(6,*) "RBf_u3(:,jplex,LowChn)", RBf_u3(1:100,1,LowChn)
+  !   write(6,*) "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  !   write(6,*) "RBf_u3(:,jplex,UppChn)", RBf_u3(1:100,1,UppChn)
   ! end if 
   ! ---- Calculating and writing ----
   write(*,*) 'Calculating and writing'
@@ -2586,7 +2625,6 @@ subroutine record_map(myid)
       j   = NYoI(jpl)
       jbf = buffIndj(jpl)
 
-    
       if (whiChn == LowChn) then
           write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
       else
@@ -2602,6 +2640,8 @@ subroutine record_map(myid)
       s2pl_tmp = ( RBf_u2(:,jbf  ,whiChn) - RBf_u2(:,jbf-1,whiChn) )        * (dthdyu(j)*ddthetavi)
       u3pl_tmp =   RBf_u3(:,jbf  ,whiChn)
       s3pl_tmp = ( RBf_u3(:,jbf+1,whiChn) - RBf_u3(:,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+
+
 
       ! if (jbf ==8 ) then 
       !     write(6,*) "whiChn", whiChn
@@ -2620,12 +2660,12 @@ subroutine record_map(myid)
       ! end if 
 
       
-      if (jbf ==8 ) then 
-      write(6,*) "whiChn", whiChn
-          ! write(6,*) "u1pl_tmp",  RBf_u1(1:100,jbf  ,whiChn)
-          write(6,*) "RBf_u3", RBf_u3(1:100,jbf  ,whiChn)
-          ! write(6,*)  "s3pl_tmp", ( RBf_u3(1:100,jbf+1,whiChn) - RBf_u3(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
-      end if 
+      ! if (jbf ==8 ) then 
+      ! write(6,*) "whiChn", whiChn
+      !     ! write(6,*) "u1pl_tmp",  RBf_u1(1:100,jbf  ,whiChn)
+      !     write(6,*) "RBf_u3", RBf_u3(1:100,jbf  ,whiChn)
+      !     ! write(6,*)  "s3pl_tmp", ( RBf_u3(1:100,jbf+1,whiChn) - RBf_u3(1:100,jbf-1,whiChn) ) / 2.d0 * (dthdyu(j)*ddthetavi)
+      ! end if 
 
 
       do i = 1, MoINumX
@@ -2639,6 +2679,19 @@ subroutine record_map(myid)
           ric    = indMoI(i,k)%SubMatA%RIndC
           kc_x   = indMoI(i,k)%NXoI * alp
           kc_z   = indMoI(i,k)%NZoI * bet
+
+          
+          ! if (myid==0 .and. whiChn==LowChn .and. jpl<=3) then
+          !   write(6,*) 'CHK u3pl_tmp sum=', sum(abs(u3pl_tmp)), ' target ric=', ric
+          !   write(6,*) 'CHK target u3C=', u3pl_tmp(ric), u3pl_tmp(ric+1)
+          !   call flush(6)
+          ! end if
+
+          ! if (myid==0 .and. whiChn==LowChn .and. jpl<=3) then
+          !   write(6,*) 'CHK u1pl_tmp sum=', sum(abs(u1pl_tmp)), ' target ric=', ric
+          !   write(6,*) 'CHK target u1C=', u1pl_tmp(ric), u1pl_tmp(ric+1)
+          !   call flush(6)
+          ! end if
 
           u1C_Re = u1pl_tmp(ric  )
           u1C_Im = u1pl_tmp(ric+1)
@@ -2714,12 +2767,15 @@ subroutine record_map(myid)
               kka = kka*(1-2*IkkcNeg)
               IkkNeg = (1 - max(isign(1,kka),0))*2
               IiiNeg = 1 - max(isign(1,iia),0)
+
               sigCase = 1+IkkNeg + IiiNeg ! 1: (+,+), 2: (-,+), 3: (+,-), 4: (-,-)
               buff_fold(:,1,sigCase, abs(iia),abs(kka)) = buff_fold(:,1,sigCase, abs(iia),abs(kka)) + buff_EP(:,1, icsub)
               buff_fold(:,3,sigCase, abs(iia),abs(kka)) = buff_fold(:,3,sigCase, abs(iia),abs(kka)) + buff_EP(:,2, icsub)
               ! if (mod(icsub,12)==0) then
               !     write(*,*) iia, kka, sigCase
               ! end if
+
+
 
               iib = indMoI(i,k)%SubMatB%ni(  icsub) 
               kkb = indMoI(i,k)%SubMatB%nk(  icsub) 
@@ -2875,7 +2931,6 @@ subroutine record_map(myid)
           convs_wu(1:4,1:4, jpl, i, k_ind, :) = convs_wu(1:4,1:4, jpl, i, k_ind, :) + buff_fib(1, 1:4,1:4, :)
           convs_wv(1:4,1:4, jpl, i, k_ind, :) = convs_wv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
           convs_ww(1:4,1:4, jpl, i, k_ind, :) = convs_ww(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :)
-
           deallocate(buff_EP, buff_Re, buff_Im)
 
           
