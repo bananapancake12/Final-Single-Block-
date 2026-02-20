@@ -135,7 +135,7 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
   call modes_to_planes_UVP ( u3PL_itp,u3_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
 
   ! if (myid ==0) then
-  !   write(6,*) "u1PL(1,1,j) before before ", u1PL(1:34,18,10)
+  !   write(6,*) "u1PL(1,1,j) before before ", u1PL(:,1,10)
   ! end if 
 
 
@@ -161,9 +161,9 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     call modes_to_planes_UVP(ppPL,p,3,nyp,nyp_LB,myid,status,ierr)
     !call modes_to_planes_UVP(ppPL,div,3,myid,status,ierr) !Output divergence for checking
 
-
+    call record_map(myid)
     call record_out(u1,myid)
-    !call record_map(myid)
+    
   end if
 
 ! if (myid == 4) then
@@ -2394,7 +2394,8 @@ subroutine record_map(myid)
   real(8) :: u2C_Re, u2C_Im
   real(8) :: u3C_Re, u3C_Im
 
-  integer :: icsub, iia, kka, iib, kkb
+
+  integer :: icsub, iia, kka, iib, kkb, dk2, di2
   integer :: IkkNeg, IiiNeg
   character(len=3)  :: extnkx, extnkz, extny, extmod
   character(len=256):: fnameList
@@ -2431,22 +2432,51 @@ subroutine record_map(myid)
 
   ! reshaping the array to match the indexing 
 
+  ! do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
+  !   do k = 1, Nspec_z
+  !     do i = 1, Nspec_x+2
+  !       u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k,j)
+  !       u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k,j)
+  !     end do
+  !   end do
+  ! end do
+  ind = 0
+
+  dk2= Ngal_z - Nspec_z
+  di2 = Ngal_x - Nspec_x
+  write(6,*) "di2", di2
+
   do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
-    do k = 1, Nspec_z
-      do i = 1, Nspec_x+2
+    do k = 1,Nspec_z/2
+      do i = 1,Nspec_x +2
         u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k,j)
         u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k,j)
       end do
     end do
-  end do
+
+    do k = Nspec_z/2 +1, Nspec_z
+      do i = 1,Nspec_x+2
+        u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k+dk2,j)
+        u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k+dk2,j)
+      end do
+    end do
+  end do 
+
 
   do j = jgal(vgrid,1)-1, jgal(vgrid,2)+1
-    do k = 1, Nspec_z
+    do k = 1, Nspec_z/2
       do i = 1, Nspec_x+2
         u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k,j)
       end do
+    end do 
+    
+    do k = Nspec_z/2 +1, Nspec_z
+      do i = 1, Nspec_x+2
+        u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k+dk2,j)
+      end do
     end do
   end do
+
 
   i = 27
   k = 18
@@ -2579,7 +2609,7 @@ subroutine record_map(myid)
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
   if( myid == 0 ) then
-    write(*,*) "RBf_u1", RBf_u1( 543:600, 1, LowChn )
+    write(*,*) "RBf_u1", RBf_u1( 500:600, 1, LowChn )
   end if 
 
 

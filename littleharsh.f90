@@ -444,8 +444,9 @@ subroutine finalize(u1,u2,u3,p,div,myid,status,ierr)
   call modes_to_planes_UVP(u3PL,u3,2,nyu,nyu_LB,myid,status,ierr)
   call modes_to_planes_UVP(ppPL, p,3,nyp,nyp_LB,myid,status,ierr)
 
-  ! call record_map(myid)
+  call record_map(myid)
   call record_out(u1,myid)
+  
   
 
   if (myid/=0) then
@@ -1003,19 +1004,19 @@ subroutine v_corr(u1,u2,u3,psi,div,myid,status,ierr)
   !   flagwr = 0
   ! end if
 
-  flagwr = 1
+  ! flagwr = 1
 
-  if (flagwr==1) then
+  ! if (flagwr==1) then
 
-    call modes_to_planes_UVP ( u1PL,    u1,    ugrid,nyu,nyu_LB,myid,status,ierr)
-    call modes_to_planes_UVP ( u2PL,    u2,    vgrid,nyv,nyv_LB,myid,status,ierr)
-    call modes_to_planes_UVP ( u3PL,    u3,    ugrid,nyu,nyu_LB,myid,status,ierr)
-    call modes_to_planes_UVP ( u1PL_itp,u1_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
-    call modes_to_planes_UVP ( u2PL_itp,u2_itp,ugrid,nyu,nyu_LB,myid,status,ierr)
-    call modes_to_planes_UVP ( u3PL_itp,u3_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u1PL,    u1,    ugrid,nyu,nyu_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u2PL,    u2,    vgrid,nyv,nyv_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u3PL,    u3,    ugrid,nyu,nyu_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u1PL_itp,u1_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u2PL_itp,u2_itp,ugrid,nyu,nyu_LB,myid,status,ierr)
+  !   call modes_to_planes_UVP ( u3PL_itp,u3_itp,vgrid,nyv,nyv_LB,myid,status,ierr)
 
-    call record_map(myid)
-  end if
+  !   call record_map(myid)
+  ! end if
 
   deallocate(vcorrPL)
 end subroutine
