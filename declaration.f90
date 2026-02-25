@@ -174,7 +174,7 @@ module declaration
   real(8) :: Re_tau
 
 
- type PLj
+  type PLj
       integer :: j
       type(PLj), pointer :: next
   end type PLj
@@ -221,6 +221,7 @@ module declaration
   real(8), allocatable :: buff_Re(:,:), buff_Im(:,:), buff_EP(:,:,:)
 
 
-
+  integer, allocatable :: mask_U(:,:,:), mask_V(:,:,:), mask_W(:,:,:)
+  integer, allocatable :: mask_U_itp(:,:,:), mask_V_itp(:,:,:), mask_W_itp(:,:,:)
 
 end module

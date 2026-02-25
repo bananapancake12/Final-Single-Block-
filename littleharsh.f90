@@ -144,6 +144,11 @@ program littleharsh
   call getini(u1,u2,u3,p,div,myid,status,ierr)
   write(6,*) 'finished getini', myid
 
+  write(6,*) "nyu", nyu, "nyv", nyv
+  if (myid==7) then 
+    write(6,*) "limPL_excw(ugrid,2,myid)", limPL_excw(vgrid,2,myid)
+  end if 
+
 !   if(myid==0) then
 !     write(6,*) "u1", u1(jlim(1,ugrid),:)
 !   end if 

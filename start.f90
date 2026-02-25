@@ -1624,6 +1624,8 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   !   end do
   ! end if 
 
+  call read_mask(myid)
+
 end subroutine
 
 
@@ -3096,3 +3098,509 @@ subroutine trd_alloc_setup
 
 
 end subroutine
+
+subroutine read_mask(myid)
+  use declaration
+  implicit none
+
+  include 'mpif.h'             ! MPI variables
+  integer status(MPI_STATUS_SIZE),ierr,myid
+  integer :: Nym, nxm, nzm, iproc
+  integer :: unit
+  integer :: j, jstart, jend, njloc
+  integer, allocatable:: buffSR(:,:)
+
+  allocate( mask_U(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)))
+  allocate( mask_V(igal,kgal,limPL_excw(vgrid,1,myid):limPL_excw(vgrid,2,myid)))
+  allocate( mask_W(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)))
+
+  if (myid == np-1) then 
+    allocate( mask_U_itp(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)-1))
+    allocate( mask_V_itp(igal,kgal,limPL_excw(vgrid,1,myid):limPL_excw(vgrid,2,myid)+1))
+    allocate( mask_W_itp(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)-1))
+  else
+    allocate( mask_U_itp(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)))
+    allocate( mask_V_itp(igal,kgal,limPL_excw(vgrid,1,myid):limPL_excw(vgrid,2,myid)))
+    allocate( mask_W_itp(igal,kgal,limPL_excw(ugrid,1,myid):limPL_excw(ugrid,2,myid)))
+  end if 
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! U !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid ==0) then 
+
+    unit = 10
+
+    open(unit=unit, file='maskU.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if 
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid ==0) then
+
+    ! Allocate mask array
+    ! allocate(maskU(nxm,nzm,Nym))
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend 
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_U(1,1,j),buffSR,nxm,nzm,igal,kgal)
+      deallocate(buffSR)
+    end do 
+
+    do iproc = 1, np-1
+
+      jstart = limPL_excw(ugrid,1,iproc)
+      jend   = limPL_excw(ugrid,2,iproc)
+      njloc  = jend - jstart + 1
+      
+      do j = jstart, jend 
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do 
+    end do
+  close(10)
+
+  else
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    njloc = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+
+    do j = jstart, jend 
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_U(1,1,j),buffSR,nxm,nzm,igal,kgal)
+      deallocate(buffSR)
+    end do 
+  end if 
+
+  if(myid ==0) then 
+    do iproc = 0, np-1
+      write(6,*) "limPL_excw(ugrid,1,iproc)", limPL_excw(ugrid,1,iproc), "limPL_excw(ugrid,2,iproc)", limPL_excw(ugrid,2,iproc), iproc
+    end do 
+  end if 
+
+  ! if (myid ==1) then 
+  !   print *, "mask_U(1,5,34) =", mask_U(:,3,34)
+  ! end if 
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! V !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid == 0) then
+
+    unit = 10
+
+    open(unit=unit, file='maskV.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid == 0) then
+
+    jstart = limPL_excw(vgrid,1,myid)
+    jend   = limPL_excw(vgrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_V(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+    do iproc = 1, np-1
+
+      jstart = limPL_excw(vgrid,1,iproc)
+      jend   = limPL_excw(vgrid,2,iproc)
+      njloc  = jend - jstart + 1
+
+      do j = jstart, jend
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do
+    end do
+    close(10)
+
+  else
+
+    jstart = limPL_excw(vgrid,1,myid)
+    jend   = limPL_excw(vgrid,2,myid)
+    njloc  = limPL_excw(vgrid,2,myid) - limPL_excw(vgrid,1,myid) + 1
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_V(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+  end if
+
+  ! if (myid ==4) then 
+  !   print *, "mask_V(1,5,34) =", mask_V(:,3,88)
+  ! end if 
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! W !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid == 0) then
+
+    unit = 10
+
+    open(unit=unit, file='maskW.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid == 0) then
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_W(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+    do iproc = 1, np-1
+
+      jstart = limPL_excw(ugrid,1,iproc)
+      jend   = limPL_excw(ugrid,2,iproc)
+      njloc  = jend - jstart + 1
+
+      do j = jstart, jend
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do
+    end do
+    close(10)
+
+  else
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    njloc  = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_W(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+  end if
+
+
+
+  ! interpolated planes 
+
+  ! mask_U_itp 
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! U ITP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid ==0) then 
+
+    unit = 10
+
+    open(unit=unit, file='maskU_itp.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if 
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid ==0) then
+
+    ! Allocate mask array
+    ! allocate(maskU(nxm,nzm,Nym))
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend 
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_U_itp(1,1,j),buffSR,nxm,nzm,igal,kgal)
+      deallocate(buffSR)
+    end do 
+
+    do iproc = 1, np-1
+      if (iproc == np-1) then 
+        jstart = limPL_excw(ugrid,1,iproc)
+        jend   = limPL_excw(ugrid,2,iproc)-1
+        njloc  = jend - jstart + 1
+      else 
+        jstart = limPL_excw(ugrid,1,iproc)
+        jend   = limPL_excw(ugrid,2,iproc)
+        njloc  = jend - jstart + 1
+      end if 
+      
+      do j = jstart, jend
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do 
+    end do
+  close(10)
+
+  else
+    if (myid == np-1) then 
+      jstart = limPL_excw(ugrid,1,myid)
+      jend   = limPL_excw(ugrid,2,myid)-1
+      njloc = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+    else 
+      jstart = limPL_excw(ugrid,1,myid)
+      jend   = limPL_excw(ugrid,2,myid)
+      njloc = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+    end if 
+
+    do j = jstart, jend 
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_U_itp(1,1,j),buffSR,nxm,nzm,igal,kgal)
+      deallocate(buffSR)
+    end do 
+  end if 
+
+  ! if(myid ==0) then 
+  !   do iproc = 0, np-1
+  !     write(6,*) "limPL_excw(ugrid,1,iproc)", limPL_excw(ugrid,1,iproc), "limPL_excw(ugrid,2,iproc)", limPL_excw(ugrid,2,iproc), iproc
+  !   end do 
+  ! end if 
+
+  ! if (myid ==1) then 
+  !   print *, "mask_U(1,5,34) =", mask_U(:,3,34)
+  ! end if 
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! V !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid == 0) then
+
+    unit = 10
+
+    open(unit=unit, file='maskV_itp.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid == 0) then
+
+    jstart = limPL_excw(vgrid,1,myid)
+    jend   = limPL_excw(vgrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_V_itp(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+    do iproc = 1, np-1
+
+      if (iproc == np-1) then 
+        jstart = limPL_excw(vgrid,1,iproc)
+        jend   = limPL_excw(vgrid,2,iproc)+1
+        njloc  = jend - jstart + 1
+      else 
+        jstart = limPL_excw(vgrid,1,iproc)
+        jend   = limPL_excw(vgrid,2,iproc)
+        njloc  = jend - jstart + 1
+      end if 
+
+      do j = jstart, jend
+        write(6,*) "j", j, "myid", myid 
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do
+    end do
+    close(10)
+
+  else
+    if (myid == np-1) then 
+      jstart = limPL_excw(vgrid,1,myid)
+      jend   = limPL_excw(vgrid,2,myid)+1
+      njloc  = limPL_excw(vgrid,2,myid) - limPL_excw(vgrid,1,myid) + 1
+    else 
+      jstart = limPL_excw(vgrid,1,myid)
+      jend   = limPL_excw(vgrid,2,myid)
+      njloc  = limPL_excw(vgrid,2,myid) - limPL_excw(vgrid,1,myid) + 1
+    end if 
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_V_itp(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+  end if
+
+  ! if (myid ==4) then 
+  !   print *, "mask_V(1,5,34) =", mask_V(:,3,88)
+  ! end if 
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! W !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myid == 0) then
+
+    unit = 10
+
+    open(unit=unit, file='maskW_itp.dat', form='unformatted', access='stream', status='old')
+
+    ! Read header
+    read(unit) Nym
+    read(unit) nxm
+    read(unit) nzm
+
+    print *, "Ny =", Nym
+    print *, "nx =", nxm
+    print *, "nz =", nzm
+    print *, "igal =", nzm
+
+  end if
+
+  call MPI_BCAST(Nym, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nxm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+  call MPI_BCAST(nzm, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+  if (myid == 0) then
+
+    jstart = limPL_excw(ugrid,1,myid)
+    jend   = limPL_excw(ugrid,2,myid)
+    write(6,*) "jstart", jstart, "jend", jend
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      read(10) buffSR
+      call buff_to_mask(mask_W_itp(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+    do iproc = 1, np-1
+
+      if (iproc == np-1) then 
+        jstart = limPL_excw(ugrid,1,iproc)
+        jend   = limPL_excw(ugrid,2,iproc)-1
+        njloc  = jend - jstart + 1
+      else 
+        jstart = limPL_excw(ugrid,1,iproc)
+        jend   = limPL_excw(ugrid,2,iproc)
+        njloc  = jend - jstart + 1
+      end if 
+
+      do j = jstart, jend
+        allocate(buffSR(nxm,nzm))
+        read(10) buffSR
+        call MPI_SEND(buffSR, nxm*nzm, MPI_INTEGER, iproc, j, MPI_COMM_WORLD, ierr)
+        deallocate(buffSR)
+      end do
+    end do
+    close(10)
+
+  else
+    if (myid == np-1) then 
+      jstart = limPL_excw(ugrid,1,myid)
+      jend   = limPL_excw(ugrid,2,myid)-1
+      njloc  = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+    else 
+      jstart = limPL_excw(ugrid,1,myid)
+      jend   = limPL_excw(ugrid,2,myid)
+      njloc  = limPL_excw(ugrid,2,myid) - limPL_excw(ugrid,1,myid) + 1
+    end if 
+
+    do j = jstart, jend
+      allocate(buffSR(nxm,nzm))
+      call MPI_RECV(buffSR, nxm*nzm, MPI_INTEGER, 0, j, MPI_COMM_WORLD, status, ierr)
+      call buff_to_mask(mask_W_itp(1,1,j), buffSR, nxm, nzm, igal, kgal)
+      deallocate(buffSR)
+    end do
+
+  end if
+
+
+end subroutine 

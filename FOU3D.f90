@@ -1547,9 +1547,19 @@ subroutine ops_in_planes2(myid,flagst)
   du2dz = 0d0
   du3dx = 0d0
   du3dz = 0d0
+  
 
 
   do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+
+    ! apply masks before the transform to physical space
+    do k = 1,Ngal_z
+      do i = 1,Ngal_x+2
+        u1PL(i,k,j) = u1PL(i,k,j)*mask_U(i,k,j)
+        u3PL(i,k,j) = u3PL(i,k,j)*mask_W(i,k,j)
+        u2PL_itp(i,k,j) = u2PL_itp(i,k,j)*mask_V_itp(i,k,j)
+      end do
+    end do
 
     call four_to_phys_u(u1PL(1,1,j),u2PL_itp(1,1,j),u3PL(1,1,j))
 
@@ -1624,6 +1634,16 @@ subroutine ops_in_planes2(myid,flagst)
   end do
     
   do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
+
+    ! apply mask to v grid things 
+    do k = 1,Ngal_z
+      do i = 1,Ngal_x+2
+        u1PL(i,k,j) = u1PL_itp(i,k,j)*mask_U_itp(i,k,j)
+        u3PL(i,k,j) = u3PL_itp(i,k,j)*mask_W_itp(i,k,j)
+        u2PL_itp(i,k,j) = u2PL(i,k,j)*mask_V(i,k,j)
+      end do
+    end do
+
     
     call four_to_phys_u(u1PL_itp(1,1,j),u2PL(1,1,j),u3PL_itp(1,1,j))
     
@@ -2344,6 +2364,33 @@ subroutine buff_to_u(u,buffSR,nx,nz,igal,kgal)
   integer nx,nz,igal,kgal
   real(8) u(igal,kgal)
   real(8) buffSR(nx,nz)
+  integer i,k,dkk
+
+  do k = 1,min(nz/2,kgal/2)
+    do i = 1,min(nx,igal)
+      u(i,k    ) = buffSR(i,k)
+    end do
+  end do
+  dkk = kgal-nz
+  do k = nz-min(nz/2,kgal/2)+1,nz
+    do i = 1,min(nx,igal)
+      u(i,k+dkk) = buffSR(i,k)
+    end do
+  end do
+
+end subroutine
+
+subroutine buff_to_mask(u,buffSR,nx,nz,igal,kgal)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!    BUFF to U   !!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! Rearrange z-modes before writing and after reading
+
+  implicit none
+  integer nx,nz,igal,kgal
+  integer u(igal,kgal)
+  integer buffSR(nx,nz)
   integer i,k,dkk
 
   do k = 1,min(nz/2,kgal/2)
