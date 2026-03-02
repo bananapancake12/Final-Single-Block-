@@ -25,7 +25,7 @@ flgin =         1 ! 1 for initial conditions borrowed from another simulation
                   ! 2 for continuing simulation
                   ! 3 parabolic profile
                   ! 4 --
-fnmeb = u1_0032x0032x0153_t00000.dat
+fnmeb = u1_0032x0032x0153_t0000000.dat
                   ! initial conditions file path, if flgin=flag_init=1
 dirin  =./input/
 dirout =./output/

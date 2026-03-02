@@ -1580,7 +1580,11 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   write(6,*) " Calling read in"
   call read_in(myid)
 
-  ppPL = 0
+  ! if (myid ==1 ) then  
+  !   write(6,*) "u3PL(i,k,j) after read in", u3PL(:,10,25)
+  ! end if 
+
+  ! ppPL = 0
   
   ! write(6,*) " start planes to modes"
   call planes_to_modes_UVP(u1,u1PL,2,nyu,nyu_LB,myid,status,ierr)
@@ -1589,7 +1593,7 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   call planes_to_modes_UVP(p ,ppPL,3,nyp,nyp_LB,myid,status,ierr)
   ! write(6,*) " finished pplanes to modes"
 
-  
+  ! write(6,*) "recv_flg", recv_flg
 
   if (recv_flg ==1) then
     call reconstruct_u3(u3,u1,u2,myid)
@@ -2051,6 +2055,35 @@ subroutine read_in(myid)
     ! end do
     ! close(10)
     
+    ! !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
+    ! fnameimb = trim(dirin)//'/u3'//filout
+    ! write(*,*) 'u3 from file ',trim(fnameimb),','
+    ! open(10,file=fnameimb,form='unformatted')
+    ! read(10)
+    ! read(10)
+    ! read(10)
+    ! ju1=jgal(2,1)-1
+    ! ju2=jgal(2,2)
+    ! ju1=max(ju1,N2(4,0))
+    ! do j=N2(4,0),ju1-1
+    !   read(10)
+    ! end do
+    ! do j=ju1,ju2
+    !   nx=nxxu(j)
+    !   nz=nzzu(j)
+    !   allocate(buffSR(nx,nz))
+    !   buffSR(:,:) = 0
+    !   read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+    !   if (j == ju1) then
+    !     recv_flg = merge(1, 0, nzin == 1)
+    !     call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    !   end if
+
+    !   call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+    !   deallocate(buffSR)
+    ! end do
+
     !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
     fnameimb = trim(dirin)//'/u3'//filout
     write(*,*) 'u3 from file ',trim(fnameimb),','
@@ -2058,28 +2091,49 @@ subroutine read_in(myid)
     read(10)
     read(10)
     read(10)
+
     ju1=jgal(2,1)-1
     ju2=jgal(2,2)
     ju1=max(ju1,N2(4,0))
+
+    ! ---- determine whether file is "short" (nzin==1) by peeking first record we will read
+    nx = nxxu(ju1)
+    nz = nzzu(ju1)
+    allocate(buffSR(nx,nz))
+    buffSR(:,:) = 0d0
+    read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+    recv_flg = merge(1, 0, nzin == 1)
+    call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+    deallocate(buffSR)
+
+    ! ---- restart and position back to ju1
+    rewind(10)
+    read(10)
+    read(10)
+    read(10)
+
     do j=N2(4,0),ju1-1
       read(10)
     end do
+
     do j=ju1,ju2
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      buffSR(:,:) = 0
-      read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+      buffSR(:,:) = 0d0
 
-      if (j == ju1) then
-        recv_flg = merge(1, 0, nzin == 1)
-        call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      if (recv_flg == 1) then
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+      else
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
       end if
 
       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
       deallocate(buffSR)
     end do
-    if (nzin == 1)  then
+    if (recv_flg  == 1)  then
       do iproc=1,np-1
         ju1=planelim(2,1,iproc)
         ju2=planelim(2,2,iproc)
@@ -2131,64 +2185,64 @@ subroutine read_in(myid)
     
 
 
-!     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
 
-!     fnameimb = trim(dirin)//'/p'//filout
-!     write(*,*) 'and p from file ',trim(fnameimb),','
-!     open(10,file=fnameimb,form='unformatted')
-!     read(10)
-!     read(10)
-!     read(10)
-!     jp1=jgal(3,1)-1
-!     jp2=jgal(3,2)
+    fnameimb = trim(dirin)//'/p'//filout
+    write(*,*) 'and p from file ',trim(fnameimb),','
+    open(10,file=fnameimb,form='unformatted')
+    read(10)
+    read(10)
+    read(10)
+    jp1=jgal(3,1)-1
+    jp2=jgal(3,2)
 
     
-!     !if(myid ==0) then 
-!     ! write (6,*) "jp1", jp1, "jp2", jp2, "jgal(3,1)", jgal(3,1), myid 
-!     !end if 
+    !if(myid ==0) then 
+    ! write (6,*) "jp1", jp1, "jp2", jp2, "jgal(3,1)", jgal(3,1), myid 
+    !end if 
 
-!     jp1=max(jp1,N2(4,0)+1)
-!     do j=N2(4,0)+1,jp1-1
-!       read(10)
-!     end do
-!     do j=jp1,jp2
-!       nx=nxxp(j)
-!       nz=nzzp(j)
-!       allocate(buffSR(nx,nz))
-!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-!       call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
-!       !write(6,*) "ppPL", ppPL(1,1,j), j 
-!       deallocate(buffSR)
-!       if (nx/=nxin .or. nz/=nzin) then
-!         write(*,*) 'WARNING!: unexpected size of plane',j
-!       end if
-!     end do
-!     do iproc=1,np-1
-!       jp1=planelim(3,1,iproc)
-!       jp2=planelim(3,2,iproc)
-!       if (planelim(3,2,iproc)==nyu-1.and.iproc==np-1) then
-!         jp2=planelim(3,2,iproc)+1
-!       end if
-!       jp1=max(jp1,N2(4,0)+1)
-!       jp2=min(jp2,N2(4,3)+1-1)
-! !jp2=min(jp2,N2(4,nband)+1-1-1)
-!       do j=jp1,jp2
-!         nx=nxxp(j)
-!         nz=nzzp(j)
-!         allocate(buffSR(nx,nz))
-!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,ierr)
-!         deallocate(buffSR)
-!         if (nx/=nxin .or. nz/=nzin) then
-!           write(*,*) 'WARNING!: unexpected size of plane',j
-!         end if
-!       end do
-!     end do
-!     close(10)
-!     write(*,*) ''
+    jp1=max(jp1,N2(4,0)+1)
+    do j=N2(4,0)+1,jp1-1
+      read(10)
+    end do
+    do j=jp1,jp2
+      nx=nxxp(j)
+      nz=nzzp(j)
+      allocate(buffSR(nx,nz))
+      read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+      call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+      !write(6,*) "ppPL", ppPL(1,1,j), j 
+      deallocate(buffSR)
+      if (nx/=nxin .or. nz/=nzin) then
+        write(*,*) 'WARNING!: unexpected size of plane',j
+      end if
+    end do
+    do iproc=1,np-1
+      jp1=planelim(3,1,iproc)
+      jp2=planelim(3,2,iproc)
+      if (planelim(3,2,iproc)==nyu-1.and.iproc==np-1) then
+        jp2=planelim(3,2,iproc)+1
+      end if
+      jp1=max(jp1,N2(4,0)+1)
+      jp2=min(jp2,N2(4,3)+1-1)
+!jp2=min(jp2,N2(4,nband)+1-1-1)
+      do j=jp1,jp2
+        nx=nxxp(j)
+        nz=nzzp(j)
+        allocate(buffSR(nx,nz))
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+        call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,ierr)
+        deallocate(buffSR)
+        if (nx/=nxin .or. nz/=nzin) then
+          write(*,*) 'WARNING!: unexpected size of plane',j
+        end if
+      end do
+    end do
+    close(10)
+    write(*,*) ''
 
-!     deallocate(nxxu,nzzu,nxxv,nzzv,nxxp,nzzp)
-!     deallocate(N2)
+    deallocate(nxxu,nzzu,nxxv,nzzv,nxxp,nzzp)
+    deallocate(N2)
 
   else
 
@@ -2270,6 +2324,7 @@ subroutine read_in(myid)
       allocate(buffSR(nx,nz))
 
       if (recv_flg == 1) then
+        write(6,*) "recv_flg", recv_flg
         buffSR(:,:) = 0d0
         call MPI_RECV(buffSR(:,1), nx, MPI_REAL8, 0, 125*myid, MPI_COMM_WORLD, status, ierr)
         call buff_to_u(u3PL(1,1,j), buffSR, nx, nz, igal, kgal)
@@ -2280,17 +2335,17 @@ subroutine read_in(myid)
   
       deallocate(buffSR)
     end do
-    ! !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
-    ! do j=jp1,jp2
-    !   nx=nxxu(j)
-    !   nz=nzzu(j)
-    !   allocate(buffSR(nx,nz))
-    !   call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,status,ierr)
-    !   call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
-    !   deallocate(buffSR)
-    ! end do
-    ! deallocate(nxxu,nzzu,nxxv,nzzv)
-    ! deallocate(N2)
+    !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+    do j=jp1,jp2
+      nx=nxxu(j)
+      nz=nzzu(j)
+      allocate(buffSR(nx,nz))
+      call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,status,ierr)
+      call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+      deallocate(buffSR)
+    end do
+    deallocate(nxxu,nzzu,nxxv,nzzv)
+    deallocate(N2)
   end if
   !write(*,*) 'finished read in'
 
@@ -2334,6 +2389,462 @@ subroutine reconstruct_u3(u3,u1,u2,myid)
   end do 
 
 end subroutine 
+
+
+! subroutine read_in(myid)
+! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! !!!!!!!!!!!!!!!!!!!!!!!    READ IN  OLD   !!!!!!!!!!!!!!!!!!!!
+! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+! ! Reads the file with the inital condition
+
+! ! The variables u1PL, u2PL, u3PL and ppPL are sent to every proc
+! ! The procs only stores the planes they have to compute
+! !  (jgal is the local name of planelim for j)
+
+!   use declaration
+!   ! use FOU3D_mod
+!   implicit none
+
+!   include 'mpif.h'             ! MPI variables
+!   integer status(MPI_STATUS_SIZE),ierr,myid
+!   integer nx,nz,nxin,nzin,nband2
+!   integer j,jin,iproc,dummI,ju1,ju2,jv1,jv2,jp1,jp2, i 
+!   real(8) dummRe,Re2,alp2,bet2
+!   real(8), allocatable:: buffSR(:,:),dumm_y(:)
+!   integer, allocatable:: dummint(:),N2(:,:)
+!   integer, allocatable:: nxxu(:),nzzu(:),nxxv(:),nzzv(:),nxxp(:),nzzp(:)
+
+!   filout   = fnameimb(3:index(fnameimb,' ')-1)
+
+!   if (myid==0) then
+!     ! Read the file with the initial conditions
+!     fnameimb = trim(dirin)//'/u1'//filout
+!     open(10,file=fnameimb,form='unformatted')
+!     allocate(dummint(88))
+!     read(10) t,Re2,alp2,bet2,dummRe,nband2,iter0,dummint
+! !    if (flag_ctpress==1) then
+! !      mpgx=dummRe
+! !    end if
+!     deallocate(dummint)
+
+!     ! Checks that the size of the variables in the file matches with the setup of actual problem
+!     ! Checks nband, alp, bet, N
+!     if (nband2/=3) then
+!       write(*,*) ''
+!       write(*,*) 'wrong startfile?'
+!       write(*,*) 'nband,nband_old=',nband,nband2
+!       stop
+!     else if (alp2/=alp .or. bet2/=bet) then
+!       write(*,*) ''
+!       write(*,*) 'wrong startfile?'
+!       write(*,*) 'alp,alp_old=',alp,alp2
+!       write(*,*) 'bet,bet_old=',bet,bet2
+!       write(*,*) ''
+!     end if
+!     write(*,*) 'Re_old,Re',Re2,Re
+!     allocate(N2(4,0:nband2+1))
+!     read(10) N2
+!     close(10)
+
+
+!     if(myid ==0) then 
+!       write(6,*) "N2"
+!       do i= 1,4
+!         write(6,*) N2(i, 0:4)
+!       end do 
+!     end if 
+
+!     dummI=0
+
+!     if (Nspec_x/=N2(1,3)) then
+!       dummI=2
+!     end if
+
+
+!     if (nyv_LB/=N2(3,0)) then
+!       dummI=2
+!     else if (nyv/=N2(3,3)) then
+!       dummI=2
+!     end if
+
+!     if (dummI==1) then
+!       write(*,*) ''
+!       write(*,*) 'wrong startfile?',dummI
+!       write(*,*) 'N_new='
+!       write(*,*) Nspec_x
+!       write(*,*) Nspec_z
+!       write(*,*) nyv
+!       write(*,*) nyu
+!       write(*,*) ''
+!       write(*,*) 'N_old='
+!       write(*,*) N2(1,0:4)
+!       write(*,*) N2(2,0:4)
+!       write(*,*) N2(3,0:4)
+!       write(*,*) N2(4,0:4)
+!       stop
+!     else if (dummI==2) then
+!       write(*,*) ''
+!       write(*,*) 'WARNING startfile size',dummI
+!       write(*,*) 'N_new='
+!       write(*,*) Nspec_x
+!       write(*,*) Nspec_z
+!       write(*,*) nyv
+!       write(*,*) nyu
+!       write(*,*) ''
+!       write(*,*) 'N_old='
+!       write(*,*) N2(1,0:4)
+!       write(*,*) N2(2,0:4)
+!       write(*,*) N2(3,0:4)
+!       write(*,*) N2(4,0:4)
+!       write(*,*) ''
+!     end if
+
+!     ! Despite possible unmatches, it sends N to the procs
+!     do iproc=1,np-1
+!       call MPI_SEND(N2,4*(nband2+2),MPI_INTEGER,iproc,121*iproc,MPI_COMM_WORLD,ierr)
+!     end do
+
+!     ! nxx(j) and nzz(j) store the number of points at a plane j
+!     allocate(nxxu(N2(4,0):N2(4,3)+1),nzzu(N2(4,0):N2(4,3)+1))
+!     allocate(nxxv(N2(3,0):N2(3,3)+1),nzzv(N2(3,0):N2(3,3)+1))
+!     allocate(nxxp(N2(4,0)+1:N2(4,3)+1-1),nzzp(N2(4,0)+1:N2(4,3)+1-1))
+!     nxxu(N2(4,0))=N2(1,3)+2
+!     nzzu(N2(4,0))=N2(2,3)
+!     nxxv(N2(3,0))=N2(1,3)+2
+!     nzzv(N2(3,0))=N2(2,3)
+!     nxxp(N2(4,0)+1)=N2(1,3)+2
+!     nzzp(N2(4,0)+1)=N2(2,3)
+
+!     do j=N2(4,0)+1,N2(4,3)
+!       nxxu(j)=N2(1,3)+2
+!       nzzu(j)=N2(2,3)
+!     end do
+!     do j=N2(3,0)+1,N2(3,3)
+!       nxxv(j)=N2(1,3)+2
+!       nzzv(j)=N2(2,3)
+!     end do
+!     do j= N2(4,0)+1,N2(4,3)-1
+!       nxxp(j)=N2(1,3)+2
+!       nzzp(j)=N2(2,3)
+!     end do
+
+!     ! nxxp(N2(4,1))=nxxp(N2(4,1)+1)
+!     ! nzzp(N2(4,1))=nzzp(N2(4,1)+1)
+!     ! nxxp(N2(4,2))=nxxp(N2(4,2)-1)
+!     ! nzzp(N2(4,2))=nzzp(N2(4,2)-1)
+!     ! nxxp(N2(4,2)+1)=nxxp(N2(4,2)-1)
+!     ! nzzp(N2(4,2)+1)=nzzp(N2(4,2)-1)
+!     ! end do
+
+
+!     nxxu(N2(4,3)+1)=N2(1,3)+2
+!     nzzu(N2(4,3)+1)=N2(2,3)
+!     nxxv(N2(3,3)+1)=N2(1,3)+2
+!     nzzv(N2(3,3)+1)=N2(2,3)
+!     nxxp(N2(4,3)+1-1)=N2(1,3)+2
+!     nzzp(N2(4,3)+1-1)=N2(2,3)
+!     !filout=fnameimb(3:index(fnameimb,' ')-1)
+!     !filout=fnameimb(10:index(fnameimb,' ')-1) !22 as now in subfolder
+
+!     write(*,*) 'getting'
+
+!     ! Reads u1, u2, u3 and p,  and send them to the procs
+
+!     !!!!!!!!!!!!!!    u1    !!!!!!!!!!!!!!
+!     fnameimb = trim(dirin)//'/u1'//filout
+!     write(*,*) 'u1 from file ',trim(fnameimb),','
+!     open(10,file=fnameimb,form='unformatted')
+!     read(10)
+!     read(10)
+!     read(10)
+!     ju1=jgal(2,1)-1
+!     ju2=jgal(2,2)
+!     ju1=max(ju1,N2(4,0))
+!     do j=N2(4,0),ju1-1
+!       read(10)
+!     end do
+!     do j=ju1,ju2
+!       nx=nxxu(j)
+!       nz=nzzu(j)
+!       allocate(buffSR(nx,nz))
+!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!       call buff_to_u(u1PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!       if (nx/=nxin .or. nz/=nzin) then
+!         write(*,*) 'WARNING!: unexpected size of plane',j
+!       end if
+!     end do
+!     do iproc=1,np-1
+!       ju1=planelim(2,1,iproc)
+!       ju2=planelim(2,2,iproc)
+!       if (planelim(2,2,iproc)==nyu) then
+!         ju2=planelim(2,2,iproc)+1
+!       end if
+!       ju1=max(ju1,N2(4,0))
+!       ju2=min(ju2,N2(4,3)+1)
+!       do j=ju1,ju2
+!         nx=nxxu(j)
+!         nz=nzzu(j)
+!         allocate(buffSR(nx,nz))
+!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,123*iproc,MPI_COMM_WORLD,ierr)
+!         deallocate(buffSR)
+!         if (nx/=nxin .or. nz/=nzin) then
+!           write(*,*) 'WARNING!: unexpected size of plane',j
+!         end if
+!       end do
+!     end do
+!     close(10)
+
+!     !!!!!!!!!!!!!!    u2    !!!!!!!!!!!!!!
+!     fnameimb = trim(dirin)//'/u2'//filout
+!     write(*,*) 'u2 from file ',trim(fnameimb),','
+!     open(10,file=fnameimb,form='unformatted')
+!     read(10)
+!     read(10)
+!     read(10)
+!     jv1=jgal(1,1)-1
+!     jv2=jgal(1,2)
+!     jv1=max(jv1,N2(3,0))
+!     do j=N2(3,0),jv1-1
+!       read(10)
+!     end do
+!     do j=jv1,jv2
+!       nx=nxxv(j)
+!       nz=nzzv(j)
+!       allocate(buffSR(nx,nz))
+!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!       call buff_to_u(u2PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!       if (nx/=nxin .or. nz/=nzin) then
+!         write(*,*) 'WARNING!: unexpected size of plane',j
+!       end if
+!     end do
+!     do iproc=1,np-1
+!       jv1=planelim(1,1,iproc)
+!       jv2=planelim(1,2,iproc)
+!       if (planelim(1,2,iproc)==nyv.and.iproc==np-1) then
+!         jv2=planelim(1,2,iproc)+1
+!       end if
+!       jv1=max(jv1,N2(3,0))
+!       jv2=min(jv2,N2(3,3)+1)
+! !jv2=min(jv2,N2(3,nband))
+!       do j=jv1,jv2
+!         nx=nxxv(j)
+!         nz=nzzv(j)
+!         allocate(buffSR(nx,nz))
+!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,124*iproc,MPI_COMM_WORLD,ierr)
+!         deallocate(buffSR)
+!         if (nx/=nxin .or. nz/=nzin) then
+!           write(*,*) 'WARNING!: unexpected size of plane',j
+!         end if
+!       end do
+!     end do
+!     close(10)
+
+!     !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+!     fnameimb = trim(dirin)//'/u3'//filout
+!     write(*,*) 'u3 from file ',trim(fnameimb),','
+!     open(10,file=fnameimb,form='unformatted')
+!     read(10)
+!     read(10)
+!     read(10)
+!     ju1=jgal(2,1)-1
+!     ju2=jgal(2,2)
+!     ju1=max(ju1,N2(4,0))
+!     do j=N2(4,0),ju1-1
+!       read(10)
+!     end do
+!     do j=ju1,ju2
+!       nx=nxxu(j)
+!       nz=nzzu(j)
+!       allocate(buffSR(nx,nz))
+!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!       if (nx/=nxin .or. nz/=nzin) then
+!         write(*,*) 'WARNING!: unexpected size of plane',j
+!       end if
+!     end do
+!     do iproc=1,np-1
+!       ju1=planelim(2,1,iproc)
+!       ju2=planelim(2,2,iproc)
+!       if (planelim(2,2,iproc)==nyu) then
+!         ju2=planelim(2,2,iproc)+1
+!       end if
+!       ju1=max(ju1,N2(4,0))
+!       ju2=min(ju2,N2(4,3)+1)
+!       do j=ju1,ju2
+!         nx=nxxu(j)
+!         nz=nzzu(j)
+!         allocate(buffSR(nx,nz))
+!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+!         deallocate(buffSR)
+!         if (nx/=nxin .or. nz/=nzin) then
+!           write(*,*) 'WARNING!: unexpected size of plane',j
+!         end if
+!       end do
+!     end do
+!     close(10)
+
+!     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+
+!     fnameimb = trim(dirin)//'/p'//filout
+!     write(*,*) 'and p from file ',trim(fnameimb),','
+!     open(10,file=fnameimb,form='unformatted')
+!     read(10)
+!     read(10)
+!     read(10)
+!     jp1=jgal(3,1)-1
+!     jp2=jgal(3,2)
+
+    
+!     !if(myid ==0) then 
+!     ! write (6,*) "jp1", jp1, "jp2", jp2, "jgal(3,1)", jgal(3,1), myid 
+!     !end if 
+
+!     jp1=max(jp1,N2(4,0)+1)
+!     do j=N2(4,0)+1,jp1-1
+!       read(10)
+!     end do
+!     do j=jp1,jp2
+!       nx=nxxp(j)
+!       nz=nzzp(j)
+!       allocate(buffSR(nx,nz))
+!       read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!       call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       !write(6,*) "ppPL", ppPL(1,1,j), j 
+!       deallocate(buffSR)
+!       if (nx/=nxin .or. nz/=nzin) then
+!         write(*,*) 'WARNING!: unexpected size of plane',j
+!       end if
+!     end do
+!     do iproc=1,np-1
+!       jp1=planelim(3,1,iproc)
+!       jp2=planelim(3,2,iproc)
+!       if (planelim(3,2,iproc)==nyu-1.and.iproc==np-1) then
+!         jp2=planelim(3,2,iproc)+1
+!       end if
+!       jp1=max(jp1,N2(4,0)+1)
+!       jp2=min(jp2,N2(4,3)+1-1)
+! !jp2=min(jp2,N2(4,nband)+1-1-1)
+!       do j=jp1,jp2
+!         nx=nxxp(j)
+!         nz=nzzp(j)
+!         allocate(buffSR(nx,nz))
+!         read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+!         call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,126*iproc,MPI_COMM_WORLD,ierr)
+!         deallocate(buffSR)
+!         if (nx/=nxin .or. nz/=nzin) then
+!           write(*,*) 'WARNING!: unexpected size of plane',j
+!         end if
+!       end do
+!     end do
+!     close(10)
+!     write(*,*) ''
+
+!     deallocate(nxxu,nzzu,nxxv,nzzv,nxxp,nzzp)
+!     deallocate(N2)
+
+!   else
+
+!     ! The procs receive u1, u2, u3 and p
+!     ! Those variables are stored in u1PL, u2PL, u3PL and ppPL
+!     ! The procs only stores the planes they have to compute
+!     !  (jgal is the local name of planelim for j)
+
+!     allocate(N2(4,0:4))
+!     call MPI_RECV(N2,4*(3+2),MPI_INTEGER,0,121*myid,MPI_COMM_WORLD,status,ierr)
+!     allocate(nxxu(N2(4,0):N2(4,3)+1),nzzu(N2(4,0):N2(4,3)+1))
+!     allocate(nxxv(N2(3,0):N2(3,3)+1),nzzv(N2(3,0):N2(3,3)+1))
+!     nxxu(N2(4,0))=N2(1,3)+2
+!     nzzu(N2(4,0))=N2(2,3)
+!     nxxv(N2(3,0))=N2(1,3)+2
+!     nzzv(N2(3,0))=N2(2,3)
+
+!     do j=N2(4,0)+1,N2(4,3)
+!       nxxu(j)=N2(1,3)+2
+!       nzzu(j)=N2(2,3)
+!     end do
+!     do j=N2(3,0)+1,N2(3,3)
+!       nxxv(j)=N2(1,3)+2
+!       nzzv(j)=N2(2,3)
+!     end do
+!     ! end do
+!     nxxu(N2(4,3)+1)=N2(1,3)+2
+!     nzzu(N2(4,3)+1)=N2(2,3)
+!     nxxv(N2(3,3)+1)=N2(1,3)+2
+!     nzzv(N2(3,3)+1)=N2(2,3)
+   
+!     ju1=jgal(2,1)
+!     ju2=jgal(2,2)
+!     if (jgal(2,2)==nyu) then
+!       ju2=jgal(2,2)+1
+!     end if
+!     ju1=max(ju1,N2(4,0))
+!     ju2=min(ju2,N2(4,3)+1)
+!     jv1=jgal(1,1)
+!     jv2=jgal(1,2)
+!     if (jgal(1,2)==nyv.and.myid==np-1) then
+!       jv2=jgal(1,2)+1
+!     end if
+!     jv1=max(jv1,N2(3,0))
+!     jv2=min(jv2,N2(3,3)+1)
+! !jv2=min(jv2,N2(3,3)+1-1)
+!     jp1=jgal(3,1)
+!     jp2=jgal(3,2)
+!     if (jgal(3,2)==nyu-1.and.myid==np-1) then
+!       jp2=jgal(3,2)+1
+!     end if
+!     jp1=max(jp1,N2(4,0)+1)
+!     jp2=min(jp2,N2(4,3)+1-1)
+! !jp2=min(jp2,N2(4,nband)+1-1-1)
+!     !!!!!!!!!!!!!!    u1    !!!!!!!!!!!!!!
+!     do j=ju1,ju2
+!       nx=nxxu(j)
+!       nz=nzzu(j)
+!       allocate(buffSR(nx,nz))
+!       call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,123*myid,MPI_COMM_WORLD,status,ierr)
+!       call buff_to_u(u1PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!     end do
+!     !!!!!!!!!!!!!!    u2    !!!!!!!!!!!!!!
+!     do j=jv1,jv2
+!       nx=nxxv(j)
+!       nz=nzzv(j)
+!       allocate(buffSR(nx,nz))
+!       call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,124*myid,MPI_COMM_WORLD,status,ierr)
+!       call buff_to_u(u2PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!     end do
+!     !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+!     do j=ju1,ju2
+!       nx=nxxu(j)
+!       nz=nzzu(j)
+!       allocate(buffSR(nx,nz))
+!       call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
+!       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!     end do
+!     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
+!     do j=jp1,jp2
+!       nx=nxxu(j)
+!       nz=nzzu(j)
+!       allocate(buffSR(nx,nz))
+!       call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,126*myid,MPI_COMM_WORLD,status,ierr)
+!       call buff_to_u(ppPL(1,1,j),buffSR,nx,nz,igal,kgal)
+!       deallocate(buffSR)
+!     end do
+!     deallocate(nxxu,nzzu,nxxv,nzzv)
+!     deallocate(N2)
+!   end if
+!   !write(*,*) 'finished read in'
+
+! end subroutine
+
 
 
 

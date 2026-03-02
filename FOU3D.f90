@@ -1543,6 +1543,13 @@ subroutine ops_in_planes2(myid,flagst)
   du3dx = 0d0
   du3dz = 0d0
 
+  uu_cPL = 0d0
+  uw_cPL = 0d0
+  vv_cPL = 0d0
+  wu_cPL = 0d0
+  ww_cPL = 0d0
+
+
   !--------------------------------------------------------------------!
   !!!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
   
@@ -1582,6 +1589,9 @@ subroutine ops_in_planes2(myid,flagst)
     buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
     ! wu_cPL_f(:,:,j) = wu_cPL_f(:,:,j) + buff(:,:)
     uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+
+
+
 
   end do 
 
@@ -1638,9 +1648,14 @@ subroutine ops_in_planes2(myid,flagst)
     !   end do
     ! end do
     ! !--------------------------------------------------------------------!
-    u1PL(1:2,2,j) =  0
-    u2PL(1:2,2,j) =  0
-    u3PL(1:2,2,j) =  0
+
+    ! u1PL(1:2,1,j) =  0
+    ! u2PL_itp(1:2,1,j) =  0
+    ! u3PL(1:2,1,j) =  0
+
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "u3PL(i,k,j)", u3PL(:,10,j)
+    ! end if 
      
 
     call four_to_phys_u(u1PL(1,1,j),u2PL_itp(1,1,j),u3PL(1,1,j))
@@ -1661,10 +1676,10 @@ subroutine ops_in_planes2(myid,flagst)
     call phys_to_four_du(ww_cPL(1,1,j))  
 
     !--------------------------------------------------------------------!
-    ! !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
-    ! ! add zero mode +linear stuff back in before calculating derivatives (_f is 0 mode stuff and Linear advec)
+    !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
+    ! add zero mode +linear stuff back in before calculating derivatives (_f is 0 mode stuff and Linear advec)
 
-    ! ! wu_cPl(:,:,j) =  uw_cPL(:,:,j)
+    ! wu_cPl(:,:,j) =  uw_cPL(:,:,j)
 
     ! do k = 1,Ngal_z
     !   do i = 1,Ngal_x
@@ -1677,15 +1692,23 @@ subroutine ops_in_planes2(myid,flagst)
     ! end do
     !--------------------------------------------------------------------!
 
-    if (myid ==0 .and. j == 5) then  
-      write(6,*) "uu_cPL(i,k,j)", uu_cPL(:,10,j)
-    end if 
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "uu_cPL(i,k,j)", uu_cPL(:,10,j)
+    ! end if 
+
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,10,j)
+    ! end if 
 
 
     call der_x(uu_cPL(1,1,j),du1dx,k1F_x)
     call der_z(uw_cPL(1,1,j),du1dz,k1F_z)
     call der_x(uw_cPL(1,1,j),du3dx,k1F_x)
     call der_z(ww_cPL(1,1,j),du3dz,k1F_z)
+
+    if (myid ==0 .and. j == 5) then  
+      write(6,*) "du3dz(i,k,j)", du3dz(:,10)
+    end if 
   
     do k = 1,Ngal_z
       do i = 1,Ngal_x
