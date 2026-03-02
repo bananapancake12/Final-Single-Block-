@@ -10,6 +10,10 @@
 # F90 = mpif90
 # F77 = mpif90
 
+#BSC
+F90 = mpiifort
+F77 = mpiifort
+
 #WSL
 F90 = mpiifx
 F77 = mpiifx

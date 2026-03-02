@@ -1204,13 +1204,6 @@ subroutine ops_in_planes(myid,flagst)
     ! vv_cPL correct since 0th mode computed earlier
     buff(:,:) = 2*(u1PL(1,1,j)*u1PL(:,:,j))
     uu_cPL(:,:,j) = uu_cPL(:,:,j) + buff(:,:)
-    
-    ! do k = 1,1
-    !   do i = 1, igal
-    !     write(6,*) "i", i, "uu_cPL", uu_cPL(i,k,1)
-    !   end do 
-    ! end do 
-
 
     buff(:,:) = 2*(u3PL(1,1,j)*u3PL(:,:,j))
     ww_cPL(:,:,j) = ww_cPL(:,:,j) + buff(:,:)
@@ -1535,11 +1528,13 @@ subroutine ops_in_planes2(myid,flagst)
   
   integer i,k,j,myid,flagst,temp
   real(8) ddyi
-  real(8), allocatable:: du1dx(:,:),du1dz(:,:),du2dx(:,:),du2dz(:,:),du3dx(:,:),du3dz(:,:)
+  real(8), allocatable:: du1dx(:,:),du1dz(:,:),du2dx(:,:),du2dz(:,:),du3dx(:,:),du3dz(:,:),buff(:,:)
+  integer la,lp, ia, ip, ka, kp
 
   allocate(du1dx(igal,kgal),du1dz(igal,kgal))
   allocate(du2dx(igal,kgal),du2dz(igal,kgal))
   allocate(du3dx(igal,kgal),du3dz(igal,kgal))
+  allocate(buff(igal,kgal))
   
   du1dx = 0d0
   du1dz = 0d0
@@ -1547,19 +1542,106 @@ subroutine ops_in_planes2(myid,flagst)
   du2dz = 0d0
   du3dx = 0d0
   du3dz = 0d0
-  
 
+  !--------------------------------------------------------------------!
+  !!!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
+  
+  ! zero mode treatment seperate from nonlinear stuff! 
 
   do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
-
-    ! apply masks before the transform to physical space
-    do k = 1,Ngal_z
-      do i = 1,Ngal_x+2
-        u1PL(i,k,j) = u1PL(i,k,j)*mask_U(i,k,j)
-        u3PL(i,k,j) = u3PL(i,k,j)*mask_W(i,k,j)
-        u2PL_itp(i,k,j) = u2PL_itp(i,k,j)*mask_V_itp(i,k,j)
+    ! nonlinear interaction into 0th mode (bad, much easier to do if multiply by 4 and do one quadrant but need to think about k = 0 terms carefully)
+    do i = -(Nspec_x/2),Nspec_x/2
+      do k = -(Nspec_z/2),Nspec_z/2-1
+        la = i
+        lp = -i
+        ia = iLkup(la)
+        ip = iLkup(lp)
+        ka = kLkup(iNeg(la)*k)
+        kp = kLkup(iNeg(lp)*(-k))
+        vv_cPL_f(1,1,j) = vv_cPL_f(1,1,j) + u2PL_itp(ia,ka,j)*u2PL_itp(ip,kp,j) - &
+              & iNeg(i)*iNeg(-i)*u2PL_itp(ia+1,ka,j)*u2PL_itp(ip+1,kp,j)
+        vv_cPL_f(2,1,j) = vv_cPL_f(2,1,j) + u2PL_itp(ia,ka,j)*u2PL_itp(ip+1,kp,j)*iNeg(-i) + &
+              & iNeg(i)*u2PL_itp(ia+1,ka,j)*u2PL_itp(ip,kp,j)
+        ! really the imaginary part should be 0 so no need to compute but anyway just in case
       end do
     end do
+    
+    ! linear advection
+    ! wrong for 0th mode, 0,0 interaction should not be counted twice, but doesn't matter since differentiate = 0
+    ! vv_cPL correct since 0th mode computed earlier
+    buff(:,:) = 2*(u1PL(1,1,j)*u1PL(:,:,j))
+    uu_cPL_f(:,:,j) = uu_cPL_f(:,:,j) + buff(:,:)
+
+    buff(:,:) = 2*(u3PL(1,1,j)*u3PL(:,:,j))
+    ww_cPL_f(:,:,j) = ww_cPL_f(:,:,j) + buff(:,:)
+
+    buff(:,:) = 2*(u2PL_itp(1,1,j)*u2PL_itp(:,:,j))
+    buff(1:2,1) = 0
+    vv_cPL_f(:,:,j) = vv_cPL_f(:,:,j) + buff(:,:)
+    
+    buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
+    ! wu_cPL_f(:,:,j) = wu_cPL_f(:,:,j) + buff(:,:)
+    uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+
+  end do 
+
+
+  do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
+    ! nonlinear interaction into 0th mode
+    do i = -(Nspec_x/2),Nspec_x/2
+      do k = -(Nspec_z/2-1),Nspec_z/2-1
+        la = i
+        lp = -i
+        ia = iLkup(la)
+        ip = iLkup(lp)
+        ka = kLkup(iNeg(la)*k)
+        kp = kLkup(iNeg(lp)*(-k))
+
+        uv_fPL_f(1,1,j) = uv_fPL_f(1,1,j) + u1PL_itp(ia,ka,j)*u2PL(ip,kp,j) - &
+              & iNeg(i)*iNeg(-i)*u1PL_itp(ia+1,ka,j)*u2PL(ip+1,kp,j)
+        uv_fPL_f(2,1,j) = uv_fPL_f(2,1,j) + u1PL_itp(ia,ka,j)*u2PL(ip+1,kp,j)*iNeg(-i) + &
+              & iNeg(i)*u1PL_itp(ia+1,ka,j)*u2PL(ip,kp,j)
+        wv_fPL_f(1,1,j) = wv_fPL_f(1,1,j) + u3PL_itp(ia,ka,j)*u2PL(ip,kp,j) - &
+              & iNeg(i)*iNeg(-i)*u3PL_itp(ia+1,ka,j)*u2PL(ip+1,kp,j)
+        wv_fPL_f(2,1,j) = wv_fPL_f(2,1,j) + u3PL_itp(ia,ka,j)*u2PL(ip+1,kp,j)*iNeg(-i) + &
+              & iNeg(i)*u3PL_itp(ia+1,ka,j)*u2PL(ip,kp,j)
+      end do 
+    end do
+
+    ! linear advection
+    buff(:,:) = u1PL_itp(1,1,j)*u2PL(:,:,j) + u2PL(1,1,j)*u1PL_itp(:,:,j)
+    ! vu_fPL_f(:,:,j) = vu_fPL_f(:,:,j) + buff(:,:)
+    buff(1:2,1) = 0;
+    uv_fPL_f(:,:,j) = uv_fPL_f(:,:,j) + buff(:,:)
+
+
+    buff(:,:) = u2PL(1,1,j)*u3PL_itp(:,:,j) + u3PL_itp(1,1,j)*u2PL(:,:,j)
+    ! vw_fPL_f(:,:,j) = vw_fPL_f(:,:,j) + buff(:,:)
+    buff(1:2,1) = 0;
+    wv_fPL_f(:,:,j) = wv_fPL_f(:,:,j) + buff(:,:)
+  
+  end do 
+
+  !------------------------------------------------------------------------!
+
+  
+  do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+
+    ! !--------------------------------------------------------------------!
+    ! !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
+    ! ! apply masks before the transform to physical space
+    ! do k = 1,Ngal_z
+    !   do i = 1,Ngal_x+2
+    !     u1PL(i,k,j) = u1PL(i,k,j)*mask_U(i,k,j)
+    !     u3PL(i,k,j) = u3PL(i,k,j)*mask_W(i,k,j)
+    !     u2PL_itp(i,k,j) = u2PL_itp(i,k,j)*mask_V_itp(i,k,j)
+    !   end do
+    ! end do
+    ! !--------------------------------------------------------------------!
+    u1PL(1:2,2,j) =  0
+    u2PL(1:2,2,j) =  0
+    u3PL(1:2,2,j) =  0
+     
 
     call four_to_phys_u(u1PL(1,1,j),u2PL_itp(1,1,j),u3PL(1,1,j))
 
@@ -1569,6 +1651,7 @@ subroutine ops_in_planes2(myid,flagst)
         uw_cPL(i,k,j) = u1PL    (i,k,j)*u3PL    (i,k,j)
         vv_cPL(i,k,j) = u2PL_itp(i,k,j)*u2PL_itp(i,k,j)
         ww_cPL(i,k,j) = u3PL    (i,k,j)*u3PL    (i,k,j)
+        
       end do
     end do
     
@@ -1577,27 +1660,28 @@ subroutine ops_in_planes2(myid,flagst)
     call phys_to_four_du(vv_cPL(1,1,j))    
     call phys_to_four_du(ww_cPL(1,1,j))  
 
-    ! uu_cPL(:,kLkup(-64),j) = 0
-    ! uu_cPL(iLkup(64):iLkup(64)+1,:,j) = 0
-    ! uw_cPL(:,kLkup(-64),j) = 0
-    ! uw_cPL(iLkup(64):iLkup(64)+1,:,j) = 0
-    ! vv_cPL(:,kLkup(-64),j) = 0
-    ! vv_cPL(iLkup(64):iLkup(64)+1,:,j) = 0
-    ! ww_cPL(:,kLkup(-64),:) = 0
-    ! ww_cPL(iLkup(64):iLkup(64)+1,:,j) = 0
+    !--------------------------------------------------------------------!
+    ! !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
+    ! ! add zero mode +linear stuff back in before calculating derivatives (_f is 0 mode stuff and Linear advec)
 
-    ! if (j == 124) then
-    !   write(ext4,'(i5.5)') int(1000d0*(t-700)+kRK)
-    !   fnameima = 'output/20_'//ext4//'.dat'
-    !   write(*,*) fnameima
-    !   open(11,file=fnameima,form='unformatted')
-    !   write(11) uu_cPL(:,:,j)
-    !   write(11) vv_cPL(:,:,j)
-    !   write(11) ww_cPL(:,:,j)
-    !   write(11) uw_cPL(:,:,j)
-    !   ! write(11) wu_cPL(:,:,j)
-    ! end if  
-  
+    ! ! wu_cPl(:,:,j) =  uw_cPL(:,:,j)
+
+    ! do k = 1,Ngal_z
+    !   do i = 1,Ngal_x
+    !     uu_cPL(i,k,j) = uu_cPL(i,k,j) + uu_cPL_f(i,k,j)
+    !     uw_cPL(i,k,j) = uw_cPL(i,k,j) + uw_cPL_f(i,k,j)
+    !     vv_cPL(i,k,j) = vv_cPL(i,k,j) + vv_cPL_f(i,k,j)
+    !     ww_cPL(i,k,j) = ww_cPL(i,k,j) + ww_cPL_f(i,k,j)
+    !     ! wu_cPl(i,k,j) = wu_cPl(i,k,j) + wu_cPl_f(i,k,j)
+    !   end do
+    ! end do
+    !--------------------------------------------------------------------!
+
+    if (myid ==0 .and. j == 5) then  
+      write(6,*) "uu_cPL(i,k,j)", uu_cPL(:,10,j)
+    end if 
+
+
     call der_x(uu_cPL(1,1,j),du1dx,k1F_x)
     call der_z(uw_cPL(1,1,j),du1dz,k1F_z)
     call der_x(uw_cPL(1,1,j),du3dx,k1F_x)
@@ -1635,15 +1719,17 @@ subroutine ops_in_planes2(myid,flagst)
     
   do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
 
-    ! apply mask to v grid things 
-    do k = 1,Ngal_z
-      do i = 1,Ngal_x+2
-        u1PL(i,k,j) = u1PL_itp(i,k,j)*mask_U_itp(i,k,j)
-        u3PL(i,k,j) = u3PL_itp(i,k,j)*mask_W_itp(i,k,j)
-        u2PL_itp(i,k,j) = u2PL(i,k,j)*mask_V(i,k,j)
-      end do
-    end do
+    ! ! apply mask to v grid things 
+    ! do k = 1,Ngal_z
+    !   do i = 1,Ngal_x+2
+    !     u1PL(i,k,j) = u1PL_itp(i,k,j)*mask_U_itp(i,k,j)
+    !     u3PL(i,k,j) = u3PL_itp(i,k,j)*mask_W_itp(i,k,j)
+    !     u2PL_itp(i,k,j) = u2PL(i,k,j)*mask_V(i,k,j)
+    !   end do
+    ! end do
 
+    uv_fPL(1:2,1,j) =  0
+    wv_fPL(1:2,1,j) =  0
     
     call four_to_phys_u(u1PL_itp(1,1,j),u2PL(1,1,j),u3PL_itp(1,1,j))
     
@@ -1657,16 +1743,22 @@ subroutine ops_in_planes2(myid,flagst)
     call phys_to_four_du(uv_fPL(1,1,j))
     call phys_to_four_du(wv_fPL(1,1,j))
 
-    ! uv_fPL(:,129,:) = 0
-    ! uv_fPL(129:130,:,:) = 0
-    ! wv_fPL(:,129,:) = 0
-    ! wv_fPL(129:130,:,:) = 0
+    !--------------------------------------------------------------------!
+    !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
 
-    ! if (j == 124) then
-    !   write(11) uv_fPL(:,:,j)
-    !   write(11) wv_fPL(:,:,j)
-    !   close(11)
-    ! end if    
+    ! vu_fPL(:,:,j) = uv_fPL(:,:,j)
+    ! vw_fPL(:,:,j) = wv_fPL(:,:,j)
+
+    do k = 1,Ngal_z
+      do i = 1,Ngal_x
+        uv_fPL(i,k,j) = uv_fPL(i,k,j) + uv_fPL_f(i,k,j)
+        ! vu_fPL(i,k,j) = vu_fPL(i,k,j) + vu_fPL_f(i,k,j)
+        wv_fPL(i,k,j) = wv_fPL(i,k,j) + wv_fPL_f(i,k,j)
+        ! vw_fPL(i,k,j) = vw_fPL(i,k,j) + vw_fPL_f(i,k,j)
+      end do
+    end do
+    !--------------------------------------------------------------------!
+
     
     call der_x(uv_fPL(1,1,j),du2dx,k1F_x)
     call der_z(wv_fPL(1,1,j),du2dz,k1F_z)
@@ -2491,7 +2583,7 @@ subroutine record_map(myid)
 
   dk2= Ngal_z - Nspec_z
   di2 = Ngal_x - Nspec_x
-  write(6,*) "di2", di2
+  !write(6,*) "di2", di2
 
   do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
     do k = 1,Nspec_z/2
@@ -2527,8 +2619,8 @@ subroutine record_map(myid)
 
   i = 27
   k = 18
-  write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
-  write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
+  ! write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
+  ! write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
 
   ! if (myid ==0) then
   !   write(6,*) "u1_ind", u1_ind( 1:600, 8 )
@@ -2575,12 +2667,12 @@ subroutine record_map(myid)
   end do
 
 
-  do i = 0, np-1
-    if (myid == i) then
-      write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
-      write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
-    end if
-  end do
+  ! do i = 0, np-1
+  !   if (myid == i) then
+  !     write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
+  !     write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
+  !   end if
+  ! end do
 
   ! After jpl_list is built, may need to send and recive any planes we dont already own...
   ! ---- ugrid halo exchange for u1,u3 (always, if neighbour exists) ----
@@ -2655,9 +2747,9 @@ subroutine record_map(myid)
 
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
-  if( myid == 0 ) then
-    write(*,*) "RBf_u1", RBf_u1( 500:600, 1, LowChn )
-  end if 
+  ! if( myid == 0 ) then
+  !   write(*,*) "RBf_u1", RBf_u1( 500:600, 1, LowChn )
+  ! end if 
 
 
   ! if( myid == 0 ) then
@@ -3030,9 +3122,9 @@ subroutine record_map(myid)
   call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv, size(convs_wv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
   call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww, size(convs_ww), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  if (myid ==0) then
-    write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
-  end if 
+  ! if (myid ==0) then
+  !   write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
+  ! end if 
 
 
   write(*,*) ''

@@ -16,6 +16,7 @@
 #SBATCH --nodes=1
 #! How many (MPI) tasks will there be in total? 
 #SBATCH --ntasks=40
+#!    #SBATCH --cpus-per-task=2
 #! How much wallclock time will be required?
 #SBATCH --time=02:00:00
 #! What types of email messages do you wish to receive?

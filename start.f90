@@ -563,6 +563,14 @@ end if
   allocate(wv_fPL      (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
   allocate(ww_cPL      (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
 
+  allocate(uu_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(uv_fPL_f    (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(uw_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(vv_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(wv_fPL_f    (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(ww_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+
+
   ! du1dy_planes( nx, nz, jplanes of each MPI rank)
   
   allocate(du1dy_planes(Nspec_x+2,Nspec_z,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
@@ -650,53 +658,22 @@ end if
   spP  = 0d0
 
   ! initialising map outputs 
-  !if (myid ==0) then
-    call init_fib
-    call init_planes_of_interest
-    call init_triads(myid)
-    call trd_alloc_setup
-  !end if 
 
-  ! call MPI_Bcast(PLoINum,  1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(inoutunit,1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(MoINumX, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(MoINumZ, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-
-  ! if (myid /= 0) then
-  !     allocate(NYoI(PLoINum))
-  !     allocate(yPLoi(PLoINum))
-  !     allocate(buffIndj(PLoINum+1))
-  !     allocate(NXfib(MoINumX), KXfib(MoINumX), NXoI(MoINumX))
-  !     allocate(NZfib(MoINumZ), KZfib(MoINumZ), NZoI(MoINumZ))
-  !     allocate(NXlim(MoINumX,2), NZlim(MoINumZ,2))
-  ! end if
-
-  ! call MPI_Bcast(NYoI,     PLoINum,   MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(yPLoi,    PLoINum,   MPI_REAL8,   0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(buffIndj, PLoINum+1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-  ! call MPI_BCAST(NXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(KXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NXoI , MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NXlim, 2*MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-  ! call MPI_BCAST(NZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(KZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NZoI , MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NZlim, 2*MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
+  call init_fib
+  call init_planes_of_interest
+  call init_triads(myid)
+  call trd_alloc_setup
 
   
 
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  ! if (myid == 0) then
-  !   write(*,*) 'Reading in nonlinear interaction list'
-  !   write(*,*) dirlist
-  !   write(*,*)
-  ! end if
-  ! call nonlinRead
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  if (myid == 0) then
+    write(*,*) 'Reading in nonlinear interaction list'
+    write(*,*) dirlist
+    write(*,*)
+  end if
+  call nonlinRead
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   
 end subroutine
@@ -913,30 +890,30 @@ subroutine def_k
   ! ! write(*,*) 'size(iNeg)  = ', size(iNeg)
 
 
-  ! ! for nonlinear
-  ! !! currently only works for when same discretisation for each band
-  ! do i = 0,Nspec_x/2
-  !   iLkup(i) =  i*2+1
-  !   iNeg(i) = 1
+  ! for nonlinear
+  !! currently only works for when same discretisation for each band
+  do i = 0,Nspec_x/2
+    iLkup(i) =  i*2+1
+    iNeg(i) = 1
     
-  ! end do
-  ! do i = -Nspec_x/2,-1
-  !   iLkup(i) =  abs(i)*2+1
-  !   iNeg(i) = -1
-  !   !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
-  ! end do
+  end do
+  do i = -Nspec_x/2,-1
+    iLkup(i) =  abs(i)*2+1
+    iNeg(i) = -1
+    !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
+  end do
 
 
-  ! do k = 0,Nspec_z/2-1
-  !   kLkup(k) =  k+1
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  do k = 0,Nspec_z/2-1
+    kLkup(k) =  k+1
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
 
-  ! kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
-  ! do k = -Nspec_z/2,-1
-  !   kLkup(k) = k + 1 + Ngal_z
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
+  do k = -Nspec_z/2,-1
+    kLkup(k) = k + 1 + Ngal_z
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
   
   
 end subroutine

@@ -32,7 +32,7 @@ dirout =./output/
 
 ! Parameters of the numerical method I --------------------------------------------- 
 CFL   =     0.7d0 !0.7d0 ! CFL
-nwrite=         1 !1000 ! time steps between outputs in terminal
+nwrite=      1000 !1000 ! time steps between outputs in terminal
 flpress    =    1 ! 0 for constant flow rate
                   ! 1 for constant pressure gradient
 mpgx  =-3.0675e-3 !-3.1289e-3 ! if flpress=1, mpgx is the prescribed mean pressure gradient
