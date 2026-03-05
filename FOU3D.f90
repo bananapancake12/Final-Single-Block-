@@ -1528,13 +1528,25 @@ subroutine ops_in_planes2(myid,flagst)
   
   integer i,k,j,myid,flagst,temp
   real(8) ddyi
-  real(8), allocatable:: du1dx(:,:),du1dz(:,:),du2dx(:,:),du2dz(:,:),du3dx(:,:),du3dz(:,:),buff(:,:)
+  real(8), allocatable:: du1dx(:,:),du1dz(:,:),du2dx(:,:),du2dz(:,:),du3dx(:,:),du3dz(:,:),buff(:,:), u1_buff(:,:), u3_buff(:,:)
   integer la,lp, ia, ip, ka, kp
+  real(8), allocatable :: u1_tmp(:,:), u2_tmp(:,:), u3_tmp(:,:)
+  
 
   allocate(du1dx(igal,kgal),du1dz(igal,kgal))
   allocate(du2dx(igal,kgal),du2dz(igal,kgal))
   allocate(du3dx(igal,kgal),du3dz(igal,kgal))
   allocate(buff(igal,kgal))
+  allocate(u1_buff(igal,kgal))
+  allocate(u3_buff(igal,kgal))
+  allocate(u1_tmp(igal, kgal))
+  allocate(u2_tmp(igal, kgal))
+  allocate(u3_tmp(igal, kgal))
+
+  u1_tmp = 0d0
+  u2_tmp = 0d0
+  u3_tmp = 0d0
+  
   
   du1dx = 0d0
   du1dz = 0d0
@@ -1548,7 +1560,12 @@ subroutine ops_in_planes2(myid,flagst)
   vv_cPL = 0d0
   wu_cPL = 0d0
   ww_cPL = 0d0
-
+  uu_cPL_f = 0d0
+  uw_cPL_f = 0d0
+  vv_cPL_f = 0d0
+  ww_cPL_f = 0d0
+  uv_fPL_f = 0d0
+  wv_fPL_f = 0d0
 
   !--------------------------------------------------------------------!
   !!!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
@@ -1556,28 +1573,17 @@ subroutine ops_in_planes2(myid,flagst)
   ! zero mode treatment seperate from nonlinear stuff! 
 
   do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
-    ! nonlinear interaction into 0th mode (bad, much easier to do if multiply by 4 and do one quadrant but need to think about k = 0 terms carefully)
-    do i = -(Nspec_x/2),Nspec_x/2
-      do k = -(Nspec_z/2),Nspec_z/2-1
-        la = i
-        lp = -i
-        ia = iLkup(la)
-        ip = iLkup(lp)
-        ka = kLkup(iNeg(la)*k)
-        kp = kLkup(iNeg(lp)*(-k))
-        vv_cPL_f(1,1,j) = vv_cPL_f(1,1,j) + u2PL_itp(ia,ka,j)*u2PL_itp(ip,kp,j) - &
-              & iNeg(i)*iNeg(-i)*u2PL_itp(ia+1,ka,j)*u2PL_itp(ip+1,kp,j)
-        vv_cPL_f(2,1,j) = vv_cPL_f(2,1,j) + u2PL_itp(ia,ka,j)*u2PL_itp(ip+1,kp,j)*iNeg(-i) + &
-              & iNeg(i)*u2PL_itp(ia+1,ka,j)*u2PL_itp(ip,kp,j)
-        ! really the imaginary part should be 0 so no need to compute but anyway just in case
-      end do
-    end do
-    
+  
     ! linear advection
     ! wrong for 0th mode, 0,0 interaction should not be counted twice, but doesn't matter since differentiate = 0
     ! vv_cPL correct since 0th mode computed earlier
-    buff(:,:) = 2*(u1PL(1,1,j)*u1PL(:,:,j))
+    ! buff(:,:) = 2*(u1PL(1,1,j)*u1PL(:,:,j))
+    ! uu_cPL_f(:,:,j) = uu_cPL_f(:,:,j) + buff(:,:)
+
+    buff(:,:) = 2d0 * (u1PL(1,1,j) * u1PL(:,:,j))
+    buff(1:2,1) = 0d0                          ! remove UU so we dont double count- now correct for 0 mode 
     uu_cPL_f(:,:,j) = uu_cPL_f(:,:,j) + buff(:,:)
+    uu_cPL_f(1,1,j) = uu_cPL_f(1,1,j) + u1PL(1,1,j)*u1PL(1,1,j)  
 
     buff(:,:) = 2*(u3PL(1,1,j)*u3PL(:,:,j))
     ww_cPL_f(:,:,j) = ww_cPL_f(:,:,j) + buff(:,:)
@@ -1585,54 +1591,53 @@ subroutine ops_in_planes2(myid,flagst)
     buff(:,:) = 2*(u2PL_itp(1,1,j)*u2PL_itp(:,:,j))
     buff(1:2,1) = 0
     vv_cPL_f(:,:,j) = vv_cPL_f(:,:,j) + buff(:,:)
+    vv_cPL_f(1,1,j) = vv_cPL_f(1,1,j) + u2PL_itp(1,1,j)*u2PL_itp(1,1,j)  
     
     buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
     ! wu_cPL_f(:,:,j) = wu_cPL_f(:,:,j) + buff(:,:)
     uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
 
+        ! if (myid == 0 .and. j == 5) then
+    !   uw_cPL_f(:,:,j) = 0d0
+    !   buff(:,:)       = 0d0
+    !   u1_buff(:,:)    = 0d0
+    !   u3_buff(:,:)    = 0d0
 
+    !   ! --- Means (kx=0,kz=0) in packed storage ---
+    !   u1_buff(1,1) = 1d0
+    !   u3_buff(1,1) = 1d0
 
+    !   ! --- kx=0, kz=3  (k=4) and its negative partner (k = Ngal_z-2) ---
+    !   u1_buff(1,4)         = 2d0
+    !   u1_buff(1,Ngal_z-2)  = 2d0
+    !   u3_buff(1,4)         = 5d0
+    !   u3_buff(1,Ngal_z-2)  = 5d0
 
+    !   ! --- kx=0, kz=5  (k=6) and its negative partner (k = Ngal_z-4) ---
+    !   u1_buff(1,6)         = 22d0
+    !   u1_buff(1,Ngal_z-4)  = 22d0
+    !   u3_buff(1,6)         = 31d0
+    !   u3_buff(1,Ngal_z-4)  = 31d0
+
+    !   ! --- kx=1, kz=2  (i=3 is Re(kx=1), k=3 is kz=2) and negative kz partner (k = Ngal_z-1) ---
+    !   u1_buff(3,3)         = 3d0
+    !   u1_buff(3,Ngal_z-1)  = 3d0
+    !   u3_buff(3,3)         = 11d0
+    !   u3_buff(3,Ngal_z-1)  = 11d0
+
+    !   ! --- linear addback: U*w + W*u with U=u1_buff(1,1), W=u3_buff(1,1) ---
+    !   buff(:,:) = u1_buff(1,1) * u3_buff(:,:) + u3_buff(1,1) * u1_buff(:,:)
+
+    !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+
+    !   ! sanity: print the *linear* Fourier targets
+    !   write(6,*) "DBG uw_f kz=3 kx=0:", uw_cPL_f(1:2,4,j)
+    !   write(6,*) "DBG uw_f kz=5 kx=0:", uw_cPL_f(1:2,6,j)
+    !   write(6,*) "DBG uw_f kz=2 kx=1:", uw_cPL_f(3:4,3,j)
+    ! end if
   end do 
 
 
-  do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
-    ! nonlinear interaction into 0th mode
-    do i = -(Nspec_x/2),Nspec_x/2
-      do k = -(Nspec_z/2-1),Nspec_z/2-1
-        la = i
-        lp = -i
-        ia = iLkup(la)
-        ip = iLkup(lp)
-        ka = kLkup(iNeg(la)*k)
-        kp = kLkup(iNeg(lp)*(-k))
-
-        uv_fPL_f(1,1,j) = uv_fPL_f(1,1,j) + u1PL_itp(ia,ka,j)*u2PL(ip,kp,j) - &
-              & iNeg(i)*iNeg(-i)*u1PL_itp(ia+1,ka,j)*u2PL(ip+1,kp,j)
-        uv_fPL_f(2,1,j) = uv_fPL_f(2,1,j) + u1PL_itp(ia,ka,j)*u2PL(ip+1,kp,j)*iNeg(-i) + &
-              & iNeg(i)*u1PL_itp(ia+1,ka,j)*u2PL(ip,kp,j)
-        wv_fPL_f(1,1,j) = wv_fPL_f(1,1,j) + u3PL_itp(ia,ka,j)*u2PL(ip,kp,j) - &
-              & iNeg(i)*iNeg(-i)*u3PL_itp(ia+1,ka,j)*u2PL(ip+1,kp,j)
-        wv_fPL_f(2,1,j) = wv_fPL_f(2,1,j) + u3PL_itp(ia,ka,j)*u2PL(ip+1,kp,j)*iNeg(-i) + &
-              & iNeg(i)*u3PL_itp(ia+1,ka,j)*u2PL(ip,kp,j)
-      end do 
-    end do
-
-    ! linear advection
-    buff(:,:) = u1PL_itp(1,1,j)*u2PL(:,:,j) + u2PL(1,1,j)*u1PL_itp(:,:,j)
-    ! vu_fPL_f(:,:,j) = vu_fPL_f(:,:,j) + buff(:,:)
-    buff(1:2,1) = 0;
-    uv_fPL_f(:,:,j) = uv_fPL_f(:,:,j) + buff(:,:)
-
-
-    buff(:,:) = u2PL(1,1,j)*u3PL_itp(:,:,j) + u3PL_itp(1,1,j)*u2PL(:,:,j)
-    ! vw_fPL_f(:,:,j) = vw_fPL_f(:,:,j) + buff(:,:)
-    buff(1:2,1) = 0;
-    wv_fPL_f(:,:,j) = wv_fPL_f(:,:,j) + buff(:,:)
-  
-  end do 
-
-  !------------------------------------------------------------------------!
 
   
   do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
@@ -1649,9 +1654,17 @@ subroutine ops_in_planes2(myid,flagst)
     ! end do
     ! !--------------------------------------------------------------------!
 
-    ! u1PL(1:2,1,j) =  0
-    ! u2PL_itp(1:2,1,j) =  0
-    ! u3PL(1:2,1,j) =  0
+    ! u1PL(1:2,1,j) = 0d0
+    ! u2PL_itp(1:2,1,j) = 0d0
+    ! u3PL(1:2,1,j) = 0d0
+
+    u1_tmp(:,:) = u1PL(:,:,j)        ! will be overwritten by phys data anyway
+    u2_tmp(:,:) = u2PL_itp(:,:,j)
+    u3_tmp(:,:) = u3PL(:,:,j)
+
+    u1_tmp(1:2,1) = 0d0
+    u2_tmp(1:2,1) = 0d0
+    u3_tmp(1:2,1) = 0d0
 
     ! if (myid ==0 .and. j == 5) then  
     !   write(6,*) "u3PL(i,k,j)", u3PL(:,10,j)
@@ -1659,14 +1672,36 @@ subroutine ops_in_planes2(myid,flagst)
      
 
     call four_to_phys_u(u1PL(1,1,j),u2PL_itp(1,1,j),u3PL(1,1,j))
+    call four_to_phys_u(u1_tmp(1,1),u2_tmp(1,1),u3_tmp(1,1))
 
-    do k = 1,Ngal_z
-      do i = 1,Ngal_x
-        uu_cPL(i,k,j) = u1PL    (i,k,j)*u1PL    (i,k,j)
-        uw_cPL(i,k,j) = u1PL    (i,k,j)*u3PL    (i,k,j)
-        vv_cPL(i,k,j) = u2PL_itp(i,k,j)*u2PL_itp(i,k,j)
-        ww_cPL(i,k,j) = u3PL    (i,k,j)*u3PL    (i,k,j)
+    ! if (myid==0 .and. j==5) then
+    !   do k = 1, Ngal_z
+    !     do i = 1, Ngal_x
+    !       u1p_tmp(i,k) = 4d0  * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
+    !                    + 44d0 * cos(2d0*pi*5d0*(k-1)/Ngal_z)
+
+    !       u3p_tmp(i,k) = 10d0 * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
+    !                    + 62d0 * cos(2d0*pi*5d0*(k-1)/Ngal_z)
+    !     end do
+    !   end do
+    ! end if
+
+    ! do k = 1,Ngal_z
+    !   do i = 1,Ngal_x
+    !     uu_cPL(i,k,j) = u1PL    (i,k,j)*u1PL    (i,k,j)
+    !     uw_cPL(i,k,j) = u1PL    (i,k,j)*u3PL    (i,k,j)
+    !     vv_cPL(i,k,j) = u2PL_itp(i,k,j)*u2PL_itp(i,k,j)
+    !     ww_cPL(i,k,j) = u3PL    (i,k,j)*u3PL    (i,k,j)
         
+    !   end do
+    ! end do 
+
+    do k = 1, Ngal_z
+      do i = 1, Ngal_x
+        uu_cPL(i,k,j) = u1_tmp(i,k) * u1_tmp(i,k)
+        uw_cPL(i,k,j) = u1_tmp(i,k) * u3_tmp(i,k)
+        vv_cPL(i,k,j) = u2_tmp(i,k) * u2_tmp(i,k)
+        ww_cPL(i,k,j) = u3_tmp(i,k) * u3_tmp(i,k)
       end do
     end do
     
@@ -1681,15 +1716,19 @@ subroutine ops_in_planes2(myid,flagst)
 
     ! wu_cPl(:,:,j) =  uw_cPL(:,:,j)
 
-    ! do k = 1,Ngal_z
-    !   do i = 1,Ngal_x
-    !     uu_cPL(i,k,j) = uu_cPL(i,k,j) + uu_cPL_f(i,k,j)
-    !     uw_cPL(i,k,j) = uw_cPL(i,k,j) + uw_cPL_f(i,k,j)
-    !     vv_cPL(i,k,j) = vv_cPL(i,k,j) + vv_cPL_f(i,k,j)
-    !     ww_cPL(i,k,j) = ww_cPL(i,k,j) + ww_cPL_f(i,k,j)
-    !     ! wu_cPl(i,k,j) = wu_cPl(i,k,j) + wu_cPl_f(i,k,j)
-    !   end do
-    ! end do
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,10,j)
+    ! end if 
+
+    do k = 1,Ngal_z
+      do i = 1,Ngal_x +2
+        uu_cPL(i,k,j) = uu_cPL(i,k,j) + uu_cPL_f(i,k,j)
+        uw_cPL(i,k,j) = uw_cPL(i,k,j) + uw_cPL_f(i,k,j)
+        vv_cPL(i,k,j) = vv_cPL(i,k,j) + vv_cPL_f(i,k,j)
+        ww_cPL(i,k,j) = ww_cPL(i,k,j) + ww_cPL_f(i,k,j)
+        ! wu_cPl(i,k,j) = wu_cPl(i,k,j) + wu_cPl_f(i,k,j)
+      end do
+    end do
     !--------------------------------------------------------------------!
 
     ! if (myid ==0 .and. j == 5) then  
@@ -1697,18 +1736,34 @@ subroutine ops_in_planes2(myid,flagst)
     ! end if 
 
     ! if (myid ==0 .and. j == 5) then  
-    !   write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,10,j)
+    !   write(6,*) "ww_cPL(i,k,j)", ww_cPL(:,10,j)
     ! end if 
+    
+    if (myid ==0 .and. j == 5) then  
+      ! write(6,*) "uw_cPL_f(i,k,j)", uw_cPL_f(:,4,j)
+      write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,10,j)
+      write(6,*) 
+    end if 
 
+
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,9,j)
+    !   write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,Ngal_z-7,j)
+    ! end if 
 
     call der_x(uu_cPL(1,1,j),du1dx,k1F_x)
     call der_z(uw_cPL(1,1,j),du1dz,k1F_z)
     call der_x(uw_cPL(1,1,j),du3dx,k1F_x)
     call der_z(ww_cPL(1,1,j),du3dz,k1F_z)
 
-    if (myid ==0 .and. j == 5) then  
-      write(6,*) "du3dz(i,k,j)", du3dz(:,10)
-    end if 
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "du3dx(i,k,j)", du3dx(:,10)
+    ! end if 
+
+      
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "du3dz(i,k,j)", du3dz(:,10)
+    ! end if 
   
     do k = 1,Ngal_z
       do i = 1,Ngal_x
@@ -1716,31 +1771,22 @@ subroutine ops_in_planes2(myid,flagst)
         Nu3PL(i,k,j) = du3dx(i,k)+du3dz(i,k)
       end do
     end do
-
-    ! if (j == 28) then
-    !   write(ext4,'(i5.5)') int(1000d0*(t-700)+kRK)
-    !   fnameima = 'output/10_'//ext4//'.dat'
-    !   write(*,*) fnameima
-    !   open(11,file=fnameima,form='unformatted')
-    !   write(11) du1dx
-    !   write(11) du1dz
-    !   write(11) du3dx
-    !   write(11) du3dz
-    !   ! write(11) wu_cPL(:,:,j)
-    ! end if  
-
-    ! if (j == 28) then
-    !   write(ext4,'(i5.5)') int(1000d0*(t-700)+kRK)
-    !   fnameima = 'output/20_'//ext4//'.dat'
-    !   write(*,*) fnameima
-    !   open(11,file=fnameima,form='unformatted')
-    !   write(11) Nu1PL(:,:,j)
-    !   write(11) Nu3PL(:,:,j)
-    ! end if 
-
   end do
     
   do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
+
+    ! linear advection
+    buff(:,:) = u1PL_itp(1,1,j)*u2PL(:,:,j) + u2PL(1,1,j)*u1PL_itp(:,:,j)
+    ! vu_fPL_f(:,:,j) = vu_fPL_f(:,:,j) + buff(:,:)
+    buff(1:2,1) = 0;
+    uv_fPL_f(:,:,j) = uv_fPL_f(:,:,j) + buff(:,:)
+    uv_fPL_f(1,1,j) = uv_fPL_f(1,1,j) + u1PL_itp(1,1,j)*u2PL(1,1,j) 
+
+    buff(:,:) = u2PL(1,1,j)*u3PL_itp(:,:,j) + u3PL_itp(1,1,j)*u2PL(:,:,j)
+    ! vw_fPL_f(:,:,j) = vw_fPL_f(:,:,j) + buff(:,:)
+    buff(1:2,1) = 0;
+    wv_fPL_f(:,:,j) = wv_fPL_f(:,:,j) + buff(:,:)
+    wv_fPL_f(1,1,j) = wv_fPL_f(1,1,j) + u3PL_itp(1,1,j)*u2PL(1,1,j) 
 
     ! ! apply mask to v grid things 
     ! do k = 1,Ngal_z
@@ -1751,8 +1797,9 @@ subroutine ops_in_planes2(myid,flagst)
     !   end do
     ! end do
 
-    uv_fPL(1:2,1,j) =  0
-    wv_fPL(1:2,1,j) =  0
+    u1PL_itp(1:2,1,j) =  0
+    u2PL(1:2,1,j) =  0
+    u3PL_itp(1:2,1,j) =  0
     
     call four_to_phys_u(u1PL_itp(1,1,j),u2PL(1,1,j),u3PL_itp(1,1,j))
     
@@ -1769,9 +1816,6 @@ subroutine ops_in_planes2(myid,flagst)
     !--------------------------------------------------------------------!
     !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
 
-    ! vu_fPL(:,:,j) = uv_fPL(:,:,j)
-    ! vw_fPL(:,:,j) = wv_fPL(:,:,j)
-
     do k = 1,Ngal_z
       do i = 1,Ngal_x
         uv_fPL(i,k,j) = uv_fPL(i,k,j) + uv_fPL_f(i,k,j)
@@ -1786,6 +1830,10 @@ subroutine ops_in_planes2(myid,flagst)
     call der_x(uv_fPL(1,1,j),du2dx,k1F_x)
     call der_z(wv_fPL(1,1,j),du2dz,k1F_z)
 
+    ! if (myid ==0 .and. j == 5) then  
+    !   write(6,*) "du2dz(i,k,j)", du2dz(:,10)
+    ! end if 
+
     do k = 1,Ngal_z
       do i = 1,Ngal_x
         Nu2PL(i,k,j) = du2dx(i,k)+du2dz(i,k)   
@@ -1795,6 +1843,8 @@ subroutine ops_in_planes2(myid,flagst)
   end do
   
   deallocate(du1dx,du1dz,du2dx,du2dz,du3dx,du3dz)
+  deallocate(buff)
+  deallocate(u1_tmp, u2_tmp, u3_tmp)
 
 end subroutine
 
