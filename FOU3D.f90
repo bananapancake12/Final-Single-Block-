@@ -1294,7 +1294,7 @@ subroutine ops_in_planes(myid,flagst)
     ! write(6,*) "k1F_x", k1F_x, "k1F_z", k1F_z
 
     ! write(6,*) "uw_cPL size   =", size(uw_cPL,1), size(uw_cPL,2), size(uw_cPL,3)
-    ! write(6,*) "igal", igal, "kgal", kgal
+    
 
     ! differentiate in x and z
     call der_x(uu_cPL(1,1,j),du1dx,k1F_x)
@@ -1531,7 +1531,7 @@ subroutine ops_in_planes2(myid,flagst)
   real(8), allocatable:: du1dx(:,:),du1dz(:,:),du2dx(:,:),du2dz(:,:),du3dx(:,:),du3dz(:,:),buff(:,:), u1_buff(:,:), u3_buff(:,:)
   integer la,lp, ia, ip, ka, kp
   real(8), allocatable :: u1_tmp(:,:), u2_tmp(:,:), u3_tmp(:,:)
-  
+  real(8) :: r, m
 
   allocate(du1dx(igal,kgal),du1dz(igal,kgal))
   allocate(du2dx(igal,kgal),du2dz(igal,kgal))
@@ -1567,13 +1567,129 @@ subroutine ops_in_planes2(myid,flagst)
   uv_fPL_f = 0d0
   wv_fPL_f = 0d0
 
+
   !--------------------------------------------------------------------!
   !!!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
   
   ! zero mode treatment seperate from nonlinear stuff! 
 
-  do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+  ! do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+
+
+  !   ! linear advection
+  !   ! wrong for 0th mode, 0,0 interaction should not be counted twice, but doesn't matter since differentiate = 0
+  !   ! vv_cPL correct since 0th mode computed earlier
+  !   ! buff(:,:) = 2*(u1PL(1,1,j)*u1PL(:,:,j))
+  !   ! uu_cPL_f(:,:,j) = uu_cPL_f(:,:,j) + buff(:,:)
+
+  !   buff(:,:) = 2d0 * (u1PL(1,1,j) * u1PL(:,:,j))
+  !   buff(1:2,1) = 0d0                          ! remove UU so we dont double count- now correct for 0 mode 
+  !   uu_cPL_f(:,:,j) = uu_cPL_f(:,:,j) + buff(:,:)
+  !   uu_cPL_f(1,1,j) = uu_cPL_f(1,1,j) + u1PL(1,1,j)*u1PL(1,1,j)  
+
+  !   buff(:,:) = 2*(u3PL(1,1,j)*u3PL(:,:,j))
+  !   ww_cPL_f(:,:,j) = ww_cPL_f(:,:,j) + buff(:,:)
+
+  !   buff(:,:) = 2*(u2PL_itp(1,1,j)*u2PL_itp(:,:,j))
+  !   buff(1:2,1) = 0
+  !   vv_cPL_f(:,:,j) = vv_cPL_f(:,:,j) + buff(:,:)
+  !   vv_cPL_f(1,1,j) = vv_cPL_f(1,1,j) + u2PL_itp(1,1,j)*u2PL_itp(1,1,j)  
+
+
+  !   ! if (myid ==2 .and. j == 50) then
+  !   !   write(6,*) "u3PL", u3PL(:,10,j)
+  !   !   ! write(6,*) "u3PL", u3PL(10,10,j)
+  !   !   ! u1PL(3:Ngal_x,:,j) = 0d0
+  !   !   ! u1PL(:,10:Ngal_z,j) = 0d0
+  !   !   ! u3PL(3:Ngal_x,:,j) = 0d0
+  !   !   ! u3PL(:,10:Ngal_z,j) = 0d0
+  !   ! end if 
+
+  !   ! if (myid == 2 .and. j == 50) then
+  !   !   u1PL(:,10:Ngal_z,j) = 0d0
+  !   !   u3PL(:,10:Ngal_z,j) = 0d0
+  !   ! end if 
+
+    
+  !   buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
+  !   ! for some reason no matter what u do to the calc, the antialiasing alwyas seems to stay correct... 
+  !   ! buff(1,:) = buff(1,:) - u3PL(2,1,j) * u1PL(2,:,j)
+  !   ! buff(2,:) = buff(2,:) + u3PL(2,1,j) * u1PL(1,:,j)
+  !   ! wu_cPL_f(:,:,j) = wu_cPL_f(:,:,j) + buff(:,:)
+  !   buff(1:2,1) = 0d0
+  !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+  !   uw_cPL_f(1,1,j) = uw_cPL_f(1,1,j) + u1PL(1,1,j)*u3PL(1,1,j)  
+  !   ! uw_cPL_f(2,1,j) = uw_cPL_f(2,1,j) + u1PL(2,1,j)*u3PL(2,1,j)  
+
+  !   ! if (myid ==2 .and. j == 50) then
+  !   !   uw_cPL_f(:,:,j) = 0d0
+  !   !   buff(:,:)       = 0d0
+  !   !   u1_buff(:,:)    = u1PL(:,:,j)
+  !   !   u3_buff(:,:)    = u3PL(:,:,j)
+
+  !   !   ! --- Means (kx=0,kz=0) in packed storage ---
+  !   !   u1_buff(1,1) = 1d0
+  !   !   u3_buff(1,1) = 1d0
+
+  !   !   ! --- kx=0, kz=3  (k=4) and its negative partner (k = Ngal_z-2) ---
+  !   !   u1_buff(1,4)         = 2d0
+  !   !   u1_buff(1,Ngal_z-2)  = 2d0
+  !   !   u3_buff(1,4)         = 5d0
+  !   !   u3_buff(1,Ngal_z-2)  = 5d0
+
+  !   !   ! --- kx=0, kz=5  (k=6) and its negative partner (k = Ngal_z-4) ---
+  !   !   u1_buff(1,6)         = 22d0
+  !   !   u1_buff(1,Ngal_z-4)  = 22d0
+  !   !   u3_buff(1,6)         = 31d0
+  !   !   u3_buff(1,Ngal_z-4)  = 31d0
+
+  !   !   ! ! --- kx=1, kz=2  (i=3 is Re(kx=1), k=3 is kz=2) and negative kz partner (k = Ngal_z-1) ---
+  !   !   ! u1_buff(3,3)         = 3d0
+  !   !   ! u1_buff(3,Ngal_z-1)  = 3d0
+  !   !   ! u3_buff(3,3)         = 11d0
+  !   !   ! u3_buff(3,Ngal_z-1)  = 11d0
+
+  !   !   ! --- linear addback: U*w + W*u with U=u1_buff(1,1), W=u3_buff(1,1) ---
+  !   !   buff(:,:) = u1_buff(1,1) * u3_buff(:,:) + u3_buff(1,1) * u1_buff(:,:)
+
+  !   !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+  !   ! end if
+
+
+  !   ! if (myid == 2 .and. j == 50) then
+  !   !   uw_cPL_f(:,:,j) = 0d0
+  !   !   buff(:,:)       = 0d0
+  !   !   u1_buff(:,:)    = 0d0
+  !   !   u3_buff(:,:)    = 0d0
+
+  !   !   ! mean
+  !   !   u1_buff(1,1) = 1d0
+  !   !   u3_buff(1,1) = 1d0
+
+  !   !   ! kx = 16, kz = 0
+  !   !   u1_buff(33,1) = 2d0
+  !   !   u3_buff(33,1) = 5d0
+
+  !   !   buff(:,:) = u1_buff(1,1) * u3_buff(:,:) + u3_buff(1,1) * u1_buff(:,:)
+
+  !   !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+  !   ! end if
+
+  ! end do 
+
+
+
   
+  do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+
+    uu_cPL_f(:,:,j) = 0d0
+    uw_cPL_f(:,:,j) = 0d0
+    vv_cPL_f(:,:,j) = 0d0
+    ww_cPL_f(:,:,j) = 0d0
+    uv_fPL_f(:,:,j) = 0d0
+    wv_fPL_f(:,:,j) = 0d0
+
+    
     ! linear advection
     ! wrong for 0th mode, 0,0 interaction should not be counted twice, but doesn't matter since differentiate = 0
     ! vv_cPL correct since 0th mode computed earlier
@@ -1592,16 +1708,91 @@ subroutine ops_in_planes2(myid,flagst)
     buff(1:2,1) = 0
     vv_cPL_f(:,:,j) = vv_cPL_f(:,:,j) + buff(:,:)
     vv_cPL_f(1,1,j) = vv_cPL_f(1,1,j) + u2PL_itp(1,1,j)*u2PL_itp(1,1,j)  
-    
-    buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
-    ! wu_cPL_f(:,:,j) = wu_cPL_f(:,:,j) + buff(:,:)
-    uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
 
-        ! if (myid == 0 .and. j == 5) then
+
+    ! if (myid ==2 .and. j == 50) then
+    !   write(6,*) "u3PL", u3PL(:,10,j)
+    !   ! write(6,*) "u3PL", u3PL(10,10,j)
+    !   ! u1PL(3:Ngal_x,:,j) = 0d0
+    !   ! u1PL(:,10:Ngal_z,j) = 0d0
+    !   ! u3PL(3:Ngal_x,:,j) = 0d0
+    !   ! u3PL(:,10:Ngal_z,j) = 0d0
+    ! end if 
+
+    ! if (myid == 2 .and. j == 50) then
+    !   u1PL(:,10:Ngal_z,j) = 0d0
+    !   u3PL(:,10:Ngal_z,j) = 0d0
+    ! end if 
+
+
+    buff(:,:) =  u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)  
+    buff(1:2,1) = 0d0
+    uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+    uw_cPL_f(1,1,j) = uw_cPL_f(1,1,j) + u1PL(1,1,j)*u3PL(1,1,j)  
+
+
+    ! ! linear uw contribution
+
+    ! uw_cPL_f(:,:,j) =0 
+    ! buff(:,:) = u1PL(1,1,j)*u3PL(:,:,j) + u3PL(1,1,j)*u1PL(:,:,j)
+    ! ! write(6,*) "buff", buff(1,:)
+
+    ! ! enforce Hermitian symmetry on kx=0 line only
+    ! ! actual kz storage:
+    ! !   k=1        ->  0
+    ! !   k=2:16     -> +1 : +15
+    ! !   k=17:33    -> anti-aliasing band (keep zero)
+    ! !   k=34:48    -> -16 : -1
+
+    ! do k = 2, 16
+    !   kp = kgal+2 - k    ! 2<->48, 3<->47, ..., 16<->34
+
+    !   r = 0.5d0 * ( buff(1,k) + buff(1,kp) )
+    !   m = 0.5d0 * ( buff(2,k) - buff(2,kp) )
+
+    !   ! write(6,*) "r", r, "k", k, "m", m 
+
+    !   buff(1,k ) = r
+    !   buff(2,k ) = m
+    !   buff(1,kp) = r
+    !   buff(2,kp) = -m
+    ! end do
+
+    ! ! kz = 0 must be real
+    ! buff(2,1) = 0d0
+
+    ! ! anti-aliasing band stays zero
+    ! buff(:,17:33) = 0d0
+
+    ! ! avoid double counting the (0,0) term
+    ! buff(1:2,1) = 0d0
+
+
+    ! uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+    ! uw_cPL_f(1,1,j) = uw_cPL_f(1,1,j) + u1PL(1,1,j)*u3PL(1,1,j)
+    
+
+    ! if (myid == 2 .and. j == 50) then
+    !     write(6,*) "u1PL(1,1,j)", u1PL(1,:,j)
+
+    ! end if 
+
+
+    ! uw_cPL_f(2,1,j) = uw_cPL_f(2,1,j) + u1PL(2,1,j)*u3PL(2,1,j)  
+
+    ! if (myid == 2 .and. j == 50) then
+    !     write(6,*) "u1PL =", u1PL(1,1,j), "u3PL",  u3PL(1,1,j)
+    !     write(6,*) "u1PL(:,:,j)", u1PL(1,:,j)
+    !     write(6,*) "u3PL(:,:,j)", u3PL(1,:,j)
+    !     write(6,*) "u2PL(:,:,j)", u2PL(1,:,j)
+    !     write(6,*) " uw_cPL_f",  uw_cPL_f(1,:,j)
+    ! end if 
+
+    ! if (myid ==2 .and. j == 50) then
     !   uw_cPL_f(:,:,j) = 0d0
     !   buff(:,:)       = 0d0
-    !   u1_buff(:,:)    = 0d0
-    !   u3_buff(:,:)    = 0d0
+    !   u1_buff(:,:)    = u1PL(:,:,j)
+    !   u3_buff(:,:)    = u3PL(:,:,j)
 
     !   ! --- Means (kx=0,kz=0) in packed storage ---
     !   u1_buff(1,1) = 1d0
@@ -1619,28 +1810,38 @@ subroutine ops_in_planes2(myid,flagst)
     !   u3_buff(1,6)         = 31d0
     !   u3_buff(1,Ngal_z-4)  = 31d0
 
-    !   ! --- kx=1, kz=2  (i=3 is Re(kx=1), k=3 is kz=2) and negative kz partner (k = Ngal_z-1) ---
-    !   u1_buff(3,3)         = 3d0
-    !   u1_buff(3,Ngal_z-1)  = 3d0
-    !   u3_buff(3,3)         = 11d0
-    !   u3_buff(3,Ngal_z-1)  = 11d0
+    !   ! ! --- kx=1, kz=2  (i=3 is Re(kx=1), k=3 is kz=2) and negative kz partner (k = Ngal_z-1) ---
+    !   ! u1_buff(3,3)         = 3d0
+    !   ! u1_buff(3,Ngal_z-1)  = 3d0
+    !   ! u3_buff(3,3)         = 11d0
+    !   ! u3_buff(3,Ngal_z-1)  = 11d0
 
     !   ! --- linear addback: U*w + W*u with U=u1_buff(1,1), W=u3_buff(1,1) ---
     !   buff(:,:) = u1_buff(1,1) * u3_buff(:,:) + u3_buff(1,1) * u1_buff(:,:)
 
     !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
-
-    !   ! sanity: print the *linear* Fourier targets
-    !   write(6,*) "DBG uw_f kz=3 kx=0:", uw_cPL_f(1:2,4,j)
-    !   write(6,*) "DBG uw_f kz=5 kx=0:", uw_cPL_f(1:2,6,j)
-    !   write(6,*) "DBG uw_f kz=2 kx=1:", uw_cPL_f(3:4,3,j)
     ! end if
-  end do 
 
 
+    ! if (myid == 2 .and. j == 50) then
+    !   uw_cPL_f(:,:,j) = 0d0
+    !   buff(:,:)       = 0d0
+    !   u1_buff(:,:)    = 0d0
+    !   u3_buff(:,:)    = 0d0
 
-  
-  do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
+    !   ! mean
+    !   u1_buff(1,1) = 1d0
+    !   u3_buff(1,1) = 1d0
+
+    !   ! kx = 16, kz = 0
+    !   u1_buff(33,1) = 2d0
+    !   u3_buff(33,1) = 5d0
+
+    !   buff(:,:) = u1_buff(1,1) * u3_buff(:,:) + u3_buff(1,1) * u1_buff(:,:)
+
+    !   uw_cPL_f(:,:,j) = uw_cPL_f(:,:,j) + buff(:,:)
+    ! end if
+
 
     ! !--------------------------------------------------------------------!
     ! !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
@@ -1666,6 +1867,12 @@ subroutine ops_in_planes2(myid,flagst)
     u2_tmp(1:2,1) = 0d0
     u3_tmp(1:2,1) = 0d0
 
+    ! if (myid == 0 .and. j == 5) then
+    !   u1_tmp(:,1:16) = 0d0
+    !   u3_tmp(:,1:16) = 0d0
+    ! end if 
+
+
     ! if (myid ==0 .and. j == 5) then  
     !   write(6,*) "u3PL(i,k,j)", u3PL(:,10,j)
     ! end if 
@@ -1674,14 +1881,27 @@ subroutine ops_in_planes2(myid,flagst)
     call four_to_phys_u(u1PL(1,1,j),u2PL_itp(1,1,j),u3PL(1,1,j))
     call four_to_phys_u(u1_tmp(1,1),u2_tmp(1,1),u3_tmp(1,1))
 
-    ! if (myid==0 .and. j==5) then
+    ! real phys signal only, holding kx=0 
+
+    ! if (myid ==2 .and. j == 50) then
     !   do k = 1, Ngal_z
     !     do i = 1, Ngal_x
-    !       u1p_tmp(i,k) = 4d0  * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
+    !       u1_tmp(i,k) = 4d0  * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
     !                    + 44d0 * cos(2d0*pi*5d0*(k-1)/Ngal_z)
 
-    !       u3p_tmp(i,k) = 10d0 * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
+    !       u3_tmp(i,k) = 10d0 * cos(2d0*pi*3d0*(k-1)/Ngal_z) &
     !                    + 62d0 * cos(2d0*pi*5d0*(k-1)/Ngal_z)
+    !     end do
+    !   end do
+    ! end if
+    
+    ! mixed signal 
+    ! if (myid == 2 .and. j == 50) then
+    !   do k = 1, Ngal_z
+    !     do i = 1, Ngal_x
+    !       u1_tmp(i,k) = 4d0 * cos(2d0*pi*16d0*(i-1)/Ngal_x)
+
+    !       u3_tmp(i,k) = 10d0 * cos(2d0*pi*16d0*(i-1)/Ngal_x)
     !     end do
     !   end do
     ! end if
@@ -1697,7 +1917,7 @@ subroutine ops_in_planes2(myid,flagst)
     ! end do 
 
     do k = 1, Ngal_z
-      do i = 1, Ngal_x
+      do i = 1, Ngal_x 
         uu_cPL(i,k,j) = u1_tmp(i,k) * u1_tmp(i,k)
         uw_cPL(i,k,j) = u1_tmp(i,k) * u3_tmp(i,k)
         vv_cPL(i,k,j) = u2_tmp(i,k) * u2_tmp(i,k)
@@ -1712,7 +1932,7 @@ subroutine ops_in_planes2(myid,flagst)
 
     !--------------------------------------------------------------------!
     !!!!!!!!!!!!!! comment out to go back to normal DNS !!!!!!!!!!!!!!!!
-    ! add zero mode +linear stuff back in before calculating derivatives (_f is 0 mode stuff and Linear advec)
+    ! add zero mode +linear stuff back in before calculating derivatives (_f is Linear advec)
 
     ! wu_cPl(:,:,j) =  uw_cPL(:,:,j)
 
@@ -1721,7 +1941,7 @@ subroutine ops_in_planes2(myid,flagst)
     ! end if 
 
     do k = 1,Ngal_z
-      do i = 1,Ngal_x +2
+      do i = 1,Ngal_x 
         uu_cPL(i,k,j) = uu_cPL(i,k,j) + uu_cPL_f(i,k,j)
         uw_cPL(i,k,j) = uw_cPL(i,k,j) + uw_cPL_f(i,k,j)
         vv_cPL(i,k,j) = vv_cPL(i,k,j) + vv_cPL_f(i,k,j)
@@ -1739,10 +1959,11 @@ subroutine ops_in_planes2(myid,flagst)
     !   write(6,*) "ww_cPL(i,k,j)", ww_cPL(:,10,j)
     ! end if 
     
-    if (myid ==0 .and. j == 5) then  
+    if (myid ==2 .and. j == 51) then  
       ! write(6,*) "uw_cPL_f(i,k,j)", uw_cPL_f(:,4,j)
-      write(6,*) "uw_cPL(i,k,j)", uw_cPL(:,10,j)
-      write(6,*) 
+      write(6,*) "uw_cPL_f(i,k,j)", uw_cPL_f(1,:,j)
+      write(6,*) "uw_cPL(i,k,j)", uw_cPL(2,:,j)
+      ! write(6,*) 
     end if 
 
 
@@ -1771,9 +1992,16 @@ subroutine ops_in_planes2(myid,flagst)
         Nu3PL(i,k,j) = du3dx(i,k)+du3dz(i,k)
       end do
     end do
+
+    ! if (myid == 2 .and. j == 50) then
+    !     write(6,*) "Nu1PL(:,:,j)", Nu1PL(1,:,j)
+    !     write(6,*) "Nu3PL(:,:,j)", Nu3PL(1,:,j)
+    ! end if 
   end do
+
     
   do j = limPL_excw(vgrid,1,myid),limPL_excw(vgrid,2,myid)
+
 
     ! linear advection
     buff(:,:) = u1PL_itp(1,1,j)*u2PL(:,:,j) + u2PL(1,1,j)*u1PL_itp(:,:,j)
@@ -1797,9 +2025,18 @@ subroutine ops_in_planes2(myid,flagst)
     !   end do
     ! end do
 
-    u1PL_itp(1:2,1,j) =  0
-    u2PL(1:2,1,j) =  0
-    u3PL_itp(1:2,1,j) =  0
+    u1_tmp(:,:) = u1PL_itp(:,:,j)        ! will be overwritten by phys data anyway
+    u2_tmp(:,:) = u2PL(:,:,j)
+    u3_tmp(:,:) = u3PL_itp(:,:,j)
+
+    u1_tmp(1:2,1) = 0d0
+    u2_tmp(1:2,1) = 0d0
+    u3_tmp(1:2,1) = 0d0
+
+
+    u1PL_itp(1,1,j) =  0
+    u2PL(1,1,j) =  0
+    u3PL_itp(1,1,j) =  0
     
     call four_to_phys_u(u1PL_itp(1,1,j),u2PL(1,1,j),u3PL_itp(1,1,j))
     
