@@ -86,7 +86,7 @@ subroutine start(myid,status,ierr)
 !  - initialise the y-grid
 !  and send this data to the other procs.
   if (myid==0) then
-    open(40,file='input.in',form='formatted')
+    open(40,file='input_2.in',form='formatted')
     do i = 1,9
       read(40,10)             ! Input file header
     end do
@@ -410,7 +410,10 @@ end if
 
 ! From here on, every proc do everything which follows.
 
+  nwrite_map = nwrite
+  
   nstat = min(20,nwrite)
+  nmap = min(20,nwrite_map)
 
   ! Initialise the FFT
 
@@ -651,6 +654,8 @@ end if
   spW  = 0d0
   spUV = 0d0
   spP  = 0d0
+
+
 
   ! initialising map outputs 
   !if (myid ==0) then
@@ -1533,9 +1538,10 @@ subroutine getini(u1,u2,u3,p,div,myid,status,ierr)
   ! If it's initialized from a previous simulation this value is already known, otherwise it's set to 0
   call MPI_BCAST(iter0,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
   call MPI_BCAST(t    ,1,MPI_REAL8  ,0,MPI_COMM_WORLD,ierr)
+
   iter   = iter0
-  !  iter0=iter-nstat
   iwrite = iter
+  iwrite_map = iter
 
   ! 'Probably' this is used to initialize the divergence in the case of a new simulation
   ! write(6,*) "call divergence ", myid
@@ -2844,10 +2850,10 @@ subroutine init_fib
   ! write(*,*) "DBG: Ntz/2-1=", Nspec_z/2 - 1
   ! if (maxval(abs(NZoI)) > Nspec_z/2 - 1) stop "BUG: NZoI contains out-of-range kz"
 
-
-
+  call system('mkdir -p output/map_output')
+  call system('mkdir -p output/map_output/postPars')
   ! write to file
-  open(40, file='output/map_output/ModesOfInterest.txt', form='formatted')
+  open(40, file='output/map_output/postPars/ModesOfInterest.txt', form='formatted')
   write(40,*) MoINumX
   do i = 1, MoINumX 
       tmpRe(1:2) = NXlim(i,:)*alp
@@ -2966,7 +2972,7 @@ subroutine init_planes_of_interest
   end do
   close(40)
 
-  open(41, file='output/map_output/PlaneOfInterest.txt', form='formatted')
+  open(41, file='output/map_output/postPars/PlaneOfInterest.txt', form='formatted')
   write(41,*) PLoINum
   do i = 1,PLoINum
       write(41,*) NYoI(i), int(yPLoI(i))
@@ -3113,11 +3119,16 @@ subroutine trd_alloc_setup
   allocate( buff_fold(3,4,4, 0:Nspec_x/2-1, 0:Nspec_z/2-1) )
   allocate( buff_fib (3,4,4, MoINumt) )
 
-  
+  convs_uu = 0.0d0
+  convs_uv = 0.0d0
+  convs_uw = 0.0d0
+  convs_vu = 0.0d0
+  convs_vv = 0.0d0
+  convs_vw = 0.0d0
+  convs_wu = 0.0d0
+  convs_wv = 0.0d0
+  convs_ww = 0.0d0
 
-  ! allocate(u1_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
-  ! allocate(u2_ind(NRplxz, jgal(vgrid,1)-1:jgal(vgrid,2)+1))
-  ! allocate(u3_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
-
+  nsamp = 0
 
 end subroutine

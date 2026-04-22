@@ -48,8 +48,8 @@ module declaration
   integer physlim_top
   
   integer nn
-  integer iter,iter0,nwrite,iwrite !itersl,nstatsl
-  integer nstat,istat
+  integer iter,iter0,nwrite,iwrite, nsamp,iter0mp, iwrite_map, nwrite_map
+  integer nstat,istat, nmap
   integer flag_init,flag_ctpress
   real(8) nextqt
   integer geometry_type
@@ -219,6 +219,10 @@ module declaration
   real(8), allocatable :: buff_fold(:,:,:,:,:), buff_fib(:,:,:,:)
 
   real(8), allocatable :: buff_Re(:,:), buff_Im(:,:), buff_EP(:,:,:)
+
+  integer :: n_planesU
+  integer, allocatable :: jpl_listU(:)
+
 
 
 

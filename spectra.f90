@@ -1,11 +1,4 @@
-
-! module spectra_mod
-!   use declaration
-!   implicit none
-! contains  
-  
-  
-  subroutine spectra(u1,u2,u2_itp2,u3,p,myid)
+    subroutine spectra(u1,u2,u2_itp2,u3,p,myid)
 
     use declaration
     implicit none

@@ -51,6 +51,7 @@ OBJECTS = $(OBJ)/declaration.o\
           $(OBJ)/stats.o\
           $(OBJ)/rft_buff.o\
           $(OBJ)/cft_buff.o\
+		  $(OBJ)/TRD_map.o\
           $(OBJ)/littleharsh.o
 # 		  $(OBJ)/sl_stats2.o\
 # 		  $(OBJ)/inst_sl_stats.o\
@@ -111,6 +112,10 @@ $(OBJDIR)/cft_buff.o : $(SRCDIR)/cft_buff.f $(SRCDIR)/makefile
 $(OBJDIR)/littleharsh.o : $(SRCDIR)/littleharsh.f90  $(SRCDIR)/makefile
 	@echo compiling littleharsh.f90
 	@cd $(OBJDIR); $(PREP) $(F90) $(F90FLAGS) -I$(SRCDIR) $(SRCDIR)/littleharsh.f90
+
+$(OBJDIR)/TRD_map.o : $(SRCDIR)/TRD_map.f90 $(SRCDIR)/makefile
+	@echo compiling TRD_map.f90
+	@cd $(OBJDIR); $(PREP) $(F90) $(F90FLAGS) -I$(SRCDIR) $(SRCDIR)/TRD_map.f90
 
 ########################      message     #########################
 
