@@ -39,6 +39,7 @@ module declaration
   integer, allocatable :: dk_phys(:,:)
 
   integer(8), allocatable :: weight(:)
+  integer recv_flg
 
   real(8) :: t1
 
@@ -83,6 +84,11 @@ module declaration
   real(8), allocatable :: uu_cPL(:,:,:), uv_fPL(:,:,:), uw_cPL(:,:,:)
   real(8), allocatable :: vu_fPL(:,:,:), vv_cPL(:,:,:), vw_fPL(:,:,:)
   real(8), allocatable :: wu_cPL(:,:,:), wv_fPL(:,:,:), ww_cPL(:,:,:)
+
+  real(8), allocatable :: uu_cPL_f(:,:,:), uv_fPL_f(:,:,:), uw_cPL_f(:,:,:)
+  real(8), allocatable :: vv_cPL_f(:,:,:)
+  real(8), allocatable :: wv_fPL_f(:,:,:), ww_cPL_f(:,:,:)
+
 
   real(8), allocatable :: Nu1PL_dy(:,:,:), Nu2PL_dy(:,:,:), Nu3PL_dy(:,:,:)
 

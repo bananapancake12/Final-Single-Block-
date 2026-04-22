@@ -563,6 +563,13 @@ end if
   allocate(wv_fPL      (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
   allocate(ww_cPL      (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
 
+  allocate(uu_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(uv_fPL_f    (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(uw_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(vv_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(wv_fPL_f    (igal,kgal,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(ww_cPL_f    (igal,kgal,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+
   ! du1dy_planes( nx, nz, jplanes of each MPI rank)
   
   allocate(du1dy_planes(Nspec_x+2,Nspec_z,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
@@ -649,14 +656,14 @@ end if
   spUV = 0d0
   spP  = 0d0
 
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  ! if (myid == 0) then
-  !   write(*,*) 'Reading in nonlinear interaction list'
-  !   write(*,*) dirlist
-  !   write(*,*)
-  ! end if
-  ! call nonlinRead
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  if (myid == 0) then
+    write(*,*) 'Reading in nonlinear interaction list'
+    write(*,*) dirlist
+    write(*,*)
+  end if
+  call nonlinRead
+  call MPI_BARRIER(MPI_COMM_WORLD,ierr)
 
   
 end subroutine
@@ -873,30 +880,30 @@ subroutine def_k
   ! ! write(*,*) 'size(iNeg)  = ', size(iNeg)
 
 
-  ! ! for nonlinear
-  ! !! currently only works for when same discretisation for each band
-  ! do i = 0,Nspec_x/2
-  !   iLkup(i) =  i*2+1
-  !   iNeg(i) = 1
+  ! for nonlinear
+  !! currently only works for when same discretisation for each band
+  do i = 0,Nspec_x/2
+    iLkup(i) =  i*2+1
+    iNeg(i) = 1
     
-  ! end do
-  ! do i = -Nspec_x/2,-1
-  !   iLkup(i) =  abs(i)*2+1
-  !   iNeg(i) = -1
-  !   !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
-  ! end do
+  end do
+  do i = -Nspec_x/2,-1
+    iLkup(i) =  abs(i)*2+1
+    iNeg(i) = -1
+    !write(6,*) "ilkup", iLkup(i), "iNeg", iNeg(i)
+  end do
 
 
-  ! do k = 0,Nspec_z/2-1
-  !   kLkup(k) =  k+1
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  do k = 0,Nspec_z/2-1
+    kLkup(k) =  k+1
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
 
-  ! kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
-  ! do k = -Nspec_z/2,-1
-  !   kLkup(k) = k + 1 + Ngal_z
-  !   ! write(6,*) "kLkup", kLkup(k), k 
-  ! end do
+  kLkup(Nspec_z/2) = -Nspec_z/2 + 1 + Ngal_z
+  do k = -Nspec_z/2,-1
+    kLkup(k) = k + 1 + Ngal_z
+    ! write(6,*) "kLkup", kLkup(k), k 
+  end do
   
   
 end subroutine
@@ -1379,6 +1386,10 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
 
   write(6,*) " Calling read in"
   call read_in(myid)
+
+  ! if (myid ==1 ) then  
+  !   write(6,*) "u3PL(i,k,j) after read in", u3PL(:,10,25)
+  ! end if 
   
   ! write(6,*) " start planes to modes"
   call planes_to_modes_UVP(u1,u1PL,2,nyu,nyu_LB,myid,status,ierr)
@@ -1386,6 +1397,10 @@ subroutine mblock_ini(u1,u2,u3,p,myid,status,ierr)
   call planes_to_modes_UVP(u3,u3PL,2,nyu,nyu_LB,myid,status,ierr)
   call planes_to_modes_UVP(p ,ppPL,3,nyp,nyp_LB,myid,status,ierr)
   ! write(6,*) " finished pplanes to modes"
+
+  if (recv_flg ==1) then
+    call reconstruct_u3(u3,u1,u2,myid)
+  end if 
 
   ! if(myid ==0) then 
   !   do j= 1, 22
@@ -1541,7 +1556,6 @@ subroutine mblock_ini_parabolic_profile(u1,u2,u3,p,myid,status,ierr)
 
 end subroutine
 
-
 subroutine read_in(myid)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!    READ IN  NEW   !!!!!!!!!!!!!!!!!!!!
@@ -1560,7 +1574,7 @@ subroutine read_in(myid)
   include 'mpif.h'             ! MPI variables
   integer status(MPI_STATUS_SIZE),ierr,myid
   integer nx,nz,nxin,nzin,nband2
-  integer j,jin,iproc,dummI,ju1,ju2,jv1,jv2,jp1,jp2, i 
+  integer j,jin,iproc,dummI,ju1,ju2,jv1,jv2,jp1,jp2,i
   real(8) dummRe,Re2,alp2,bet2
   real(8), allocatable:: buffSR(:,:),dumm_y(:)
   integer, allocatable:: dummint(:),N2(:,:)
@@ -1795,51 +1809,181 @@ subroutine read_in(myid)
     end do
     close(10)
 
-    !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    ! !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    ! fnameimb = trim(dirin)//'/u3'//filout
+    ! write(*,*) 'u3 from file ',trim(fnameimb),','
+    ! open(10,file=fnameimb,form='unformatted')
+    ! read(10)
+    ! read(10)
+    ! read(10)
+    ! ju1=jgal(2,1)-1
+    ! ju2=jgal(2,2)
+    ! ju1=max(ju1,N2(4,0))
+    ! do j=N2(4,0),ju1-1
+    !   read(10)
+    ! end do
+    ! do j=ju1,ju2
+    !   nx=nxxu(j)
+    !   nz=nzzu(j)
+    !   allocate(buffSR(nx,nz))
+    !   read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+    !   call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+    !   deallocate(buffSR)
+    !   if (nx/=nxin .or. nz/=nzin) then
+    !     write(*,*) 'WARNING!: unexpected size of plane',j
+    !   end if
+    ! end do
+    ! do iproc=1,np-1
+    !   ju1=planelim(2,1,iproc)
+    !   ju2=planelim(2,2,iproc)
+    !   if (planelim(2,2,iproc)==nyu) then
+    !     ju2=planelim(2,2,iproc)+1
+    !   end if
+    !   ju1=max(ju1,N2(4,0))
+    !   ju2=min(ju2,N2(4,3)+1)
+    !   do j=ju1,ju2
+    !     nx=nxxu(j)
+    !     nz=nzzu(j)
+    !     allocate(buffSR(nx,nz))
+    !     read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+    !     call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+    !     deallocate(buffSR)
+    !     if (nx/=nxin .or. nz/=nzin) then
+    !       write(*,*) 'WARNING!: unexpected size of plane',j
+    !     end if
+    !   end do
+    ! end do
+    ! close(10)
+    
+    ! !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
+    ! fnameimb = trim(dirin)//'/u3'//filout
+    ! write(*,*) 'u3 from file ',trim(fnameimb),','
+    ! open(10,file=fnameimb,form='unformatted')
+    ! read(10)
+    ! read(10)
+    ! read(10)
+    ! ju1=jgal(2,1)-1
+    ! ju2=jgal(2,2)
+    ! ju1=max(ju1,N2(4,0))
+    ! do j=N2(4,0),ju1-1
+    !   read(10)
+    ! end do
+    ! do j=ju1,ju2
+    !   nx=nxxu(j)
+    !   nz=nzzu(j)
+    !   allocate(buffSR(nx,nz))
+    !   buffSR(:,:) = 0
+    !   read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+    !   if (j == ju1) then
+    !     recv_flg = merge(1, 0, nzin == 1)
+    !     call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+    !   end if
+
+    !   call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+    !   deallocate(buffSR)
+    ! end do
+
+    !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
     fnameimb = trim(dirin)//'/u3'//filout
     write(*,*) 'u3 from file ',trim(fnameimb),','
     open(10,file=fnameimb,form='unformatted')
     read(10)
     read(10)
     read(10)
+
     ju1=jgal(2,1)-1
     ju2=jgal(2,2)
     ju1=max(ju1,N2(4,0))
+
+    ! ---- determine whether file is "short" (nzin==1) by peeking first record we will read
+    nx = nxxu(ju1)
+    nz = nzzu(ju1)
+    allocate(buffSR(nx,nz))
+    buffSR(:,:) = 0d0
+    read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+    recv_flg = merge(1, 0, nzin == 1)
+    call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+    deallocate(buffSR)
+
+    ! ---- restart and position back to ju1
+    rewind(10)
+    read(10)
+    read(10)
+    read(10)
+
     do j=N2(4,0),ju1-1
       read(10)
     end do
+
     do j=ju1,ju2
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+      buffSR(:,:) = 0d0
+
+      if (recv_flg == 1) then
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+      else
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+      end if
+
       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
       deallocate(buffSR)
+    end do
+    if (recv_flg  == 1)  then
+      do iproc=1,np-1
+        ju1=planelim(2,1,iproc)
+        ju2=planelim(2,2,iproc)
+        if (planelim(2,2,iproc)==nyu) then
+          ju2=planelim(2,2,iproc)+1
+        end if
+        ju1=max(ju1,N2(4,0))
+        ju2=min(ju2,N2(4,3)+1)
+        do j=ju1,ju2
+          nx=nxxu(j)
+          nz=nzzu(j)
+          allocate(buffSR(nx,nz))
+          buffSR(:,:) = 0
+          read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+          ! call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+          call MPI_SEND(buffSR(:,1), nx, MPI_REAL8, iproc, 125*iproc, MPI_COMM_WORLD, ierr)
+          deallocate(buffSR)
+          if (nx/=nxin .or. nzin/=1) then
+            write(*,*) 'WARNING!: unexpected size of plane',j
+          end if
+        end do
+      end do
+    else 
       if (nx/=nxin .or. nz/=nzin) then
         write(*,*) 'WARNING!: unexpected size of plane',j
       end if
-    end do
-    do iproc=1,np-1
-      ju1=planelim(2,1,iproc)
-      ju2=planelim(2,2,iproc)
-      if (planelim(2,2,iproc)==nyu) then
-        ju2=planelim(2,2,iproc)+1
-      end if
-      ju1=max(ju1,N2(4,0))
-      ju2=min(ju2,N2(4,3)+1)
-      do j=ju1,ju2
-        nx=nxxu(j)
-        nz=nzzu(j)
-        allocate(buffSR(nx,nz))
-        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
-        call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
-        deallocate(buffSR)
-        if (nx/=nxin .or. nz/=nzin) then
-          write(*,*) 'WARNING!: unexpected size of plane',j
+      do iproc=1,np-1
+        ju1=planelim(2,1,iproc)
+        ju2=planelim(2,2,iproc)
+        if (planelim(2,2,iproc)==nyu) then
+          ju2=planelim(2,2,iproc)+1
         end if
+        ju1=max(ju1,N2(4,0))
+        ju2=min(ju2,N2(4,3)+1)
+        do j=ju1,ju2
+          nx=nxxu(j)
+          nz=nzzu(j)
+          allocate(buffSR(nx,nz))
+          read(10) jin,dummI,nxin,nzin,dummRe,buffSR
+          call MPI_SEND(buffSR,nx*nz,MPI_REAL8,iproc,125*iproc,MPI_COMM_WORLD,ierr)
+          deallocate(buffSR)
+          if (nx/=nxin .or. nz/=nzin) then
+            write(*,*) 'WARNING!: unexpected size of plane',j
+          end if
+        end do
       end do
-    end do
+    end if 
     close(10)
+    
+
 
     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
 
@@ -1972,12 +2116,23 @@ subroutine read_in(myid)
       deallocate(buffSR)
     end do
     !!!!!!!!!!!!!!    u3    !!!!!!!!!!!!!!
+    call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
     do j=ju1,ju2
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
-      call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+
+      if (recv_flg == 1) then
+        write(6,*) "recv_flg", recv_flg
+        buffSR(:,:) = 0d0
+        call MPI_RECV(buffSR(:,1), nx, MPI_REAL8, 0, 125*myid, MPI_COMM_WORLD, status, ierr)
+        call buff_to_u(u3PL(1,1,j), buffSR, nx, nz, igal, kgal)
+      else 
+        call MPI_RECV(buffSR,nx*nz,MPI_REAL8,0,125*myid,MPI_COMM_WORLD,status,ierr)
+        call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
+      end if 
+  
       deallocate(buffSR)
     end do
     !!!!!!!!!!!!!!    p     !!!!!!!!!!!!!!
@@ -1996,6 +2151,44 @@ subroutine read_in(myid)
 
 end subroutine
 
+subroutine reconstruct_u3(u3,u1,u2,myid)
+  use declaration
+  implicit none
+
+  integer :: myid
+  integer :: column, i, k, j
+  complex(8) :: kx, kzF
+  complex(8), allocatable :: du2dy(:,:)
+  complex(8) :: u1( jlim(1,ugrid) : jlim(2,ugrid), columns_num(myid) )
+  complex(8) :: u2( jlim(1,vgrid) : jlim(2,vgrid), columns_num(myid) )
+  complex(8) :: u3( jlim(1,ugrid) : jlim(2,ugrid), columns_num(myid) )
+
+  allocate(du2dy(jlim(1,ugrid)+1:jlim(2,ugrid)-1,columns_num(myid)))
+
+  ! reconstruct u3 from continuity, each processor reconstructs their own planes
+  ! reconstructed is only calculated from div.u =0 on the internal grid points 
+  call der_yu_h(du2dy,u2,myid)  
+
+  do column = 1,columns_num(myid)
+    i   = columns_i(column,myid)
+    k   = columns_k(column,myid)
+    kx  = k1F_x(i)  ! im*kx
+    kzF = k1F_z(k)  ! im*kz
+
+        ! reconstructing internal points
+    if (abs(kzF) > 1d-12) then
+    ! if (kzF /= 0) then
+      do j = jlim(1,ugrid)+1,jlim(2,ugrid)-1
+        u3(j,column) = (-kx*u1(j,column) - du2dy(j,column)) / kzF
+      end do
+    end if
+
+    ! reconstructing ghost points
+    u3(jlim(1,ugrid),column) = -gridweighting(1) * u3(jlim(1,ugrid)+1,column)
+    u3(jlim(2,ugrid),column) = -gridweighting(2) * u3(jlim(2,ugrid)-1,column)
+  end do 
+
+end subroutine 
 
 
 subroutine init_stats(myid)
@@ -2050,6 +2243,7 @@ subroutine init_stats(myid)
  end if
 
 end subroutine
+
 
 
 
