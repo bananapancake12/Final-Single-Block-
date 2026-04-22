@@ -1548,6 +1548,12 @@ subroutine ops_in_planes2(myid,flagst)
   du3dx = 0d0
   du3dz = 0d0
 
+  uu_cPL = 0d0
+  uw_cPL = 0d0
+  vv_cPL = 0d0
+  wu_cPL = 0d0
+  ww_cPL = 0d0
+
 
   do j = limPL_excw(ugrid,1,myid),limPL_excw(ugrid,2,myid)
 
@@ -2371,6 +2377,7 @@ subroutine record_map(myid)
 
 
   real(8), allocatable :: u1_ind(:,:), u2_ind(:,:), u3_ind(:,:)
+  real(8), allocatable :: u1PL_map(:,:,:),u2PL_map(:,:,:), u3PL_map(:,:,:)
   integer, parameter :: LowChn = 1, UppChn = 2
   integer :: whiChn
 
@@ -2395,7 +2402,7 @@ subroutine record_map(myid)
   real(8) :: u3C_Re, u3C_Im
 
 
-  integer :: icsub, iia, kka, iib, kkb, dk2, di2
+  integer :: icsub, iia, kka, iib, kkb, dk2, di2, nx, nz
   integer :: IkkNeg, IiiNeg
   character(len=3)  :: extnkx, extnkz, extny, extmod
   character(len=256):: fnameList
@@ -2405,6 +2412,10 @@ subroutine record_map(myid)
   integer, allocatable :: jpl_listL(:), jpl_listU(:)
 
   integer :: max_iia, max_kka
+
+  real(8), allocatable:: buffSR(:,:)
+
+
   max_iia = 0
   max_kka = 0
 
@@ -2418,6 +2429,9 @@ subroutine record_map(myid)
   allocate(u1_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
   allocate(u2_ind(NRplxz, jgal(vgrid,1)-1:jgal(vgrid,2)+1))
   allocate(u3_ind(NRplxz, jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(u1PL_map(Nspec_x+2,Nspec_z,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
+  allocate(u2PL_map(Nspec_x+2,Nspec_z,jgal(vgrid,1)-1:jgal(vgrid,2)+1))
+  allocate(u3PL_map(Nspec_x+2,Nspec_z,jgal(ugrid,1)-1:jgal(ugrid,2)+1))
 
   convs_uu = 0.0d0
   convs_uv = 0.0d0
@@ -2444,35 +2458,74 @@ subroutine record_map(myid)
 
   dk2= Ngal_z - Nspec_z
   di2 = Ngal_x - Nspec_x
-  write(6,*) "di2", di2
+  ! write(6,*) "di2", di2
 
+  ! do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
+  !   do k = 1,Nspec_z/2
+  !     do i = 1,Nspec_x +2
+  !       u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k,j)
+  !       u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k,j)
+  !     end do
+  !   end do
+
+  !   do k = Nspec_z/2 +1, Nspec_z
+  !     do i = 1,Nspec_x+2
+  !       u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k+dk2,j)
+  !       u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k+dk2,j)
+  !     end do
+  !   end do
+  ! end do 
+
+
+  ! do j = jgal(vgrid,1)-1, jgal(vgrid,2)+1
+  !   do k = 1, Nspec_z/2
+  !     do i = 1, Nspec_x+2
+  !       u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k,j)
+  !     end do
+  !   end do 
+    
+  !   do k = Nspec_z/2 +1, Nspec_z
+  !     do i = 1, Nspec_x+2
+  !       u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k+dk2,j)
+  !     end do
+  !   end do
+  ! end do
+
+  nx = Nspec_x+2
+  nz = Nspec_z
+
+  allocate(buffSR(nx,nz))
+
+  do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
+    call u_to_buff(buffSR,u1PL(1,1,j),nx,nz,igal,kgal)
+    u1PL_map(:,:,j) = buffSR
+  end do
+
+  do j = limPL_incw(vgrid,1,myid),limPL_incw(vgrid,2,myid)
+    call u_to_buff(buffSR,u2PL(1,1,j),nx,nz,igal,kgal)
+    u2PL_map(:,:,j) = buffSR
+  end do
+
+  do j = limPL_incw(ugrid,1,myid),limPL_incw(ugrid,2,myid)
+    call u_to_buff(buffSR,u3PL(1,1,j),nx,nz,igal,kgal)
+    u3PL_map(:,:,j) = buffSR
+  end do
+
+  deallocate(buffSR)
+  
   do j = jgal(ugrid,1)-1, jgal(ugrid,2)+1
-    do k = 1,Nspec_z/2
-      do i = 1,Nspec_x +2
-        u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k,j)
-        u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k,j)
+    do k = 1, Nspec_z
+      do i = 1, Nspec_x+2
+        u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL_map(i,k,j)
+        u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL_map(i,k,j)
       end do
     end do
-
-    do k = Nspec_z/2 +1, Nspec_z
-      do i = 1,Nspec_x+2
-        u1_ind( (Nspec_x+2)*(k-1) + i , j ) = u1PL(i,k+dk2,j)
-        u3_ind( (Nspec_x+2)*(k-1) + i , j ) = u3PL(i,k+dk2,j)
-      end do
-    end do
-  end do 
-
+  end do
 
   do j = jgal(vgrid,1)-1, jgal(vgrid,2)+1
-    do k = 1, Nspec_z/2
+    do k = 1, Nspec_z
       do i = 1, Nspec_x+2
-        u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k,j)
-      end do
-    end do 
-    
-    do k = Nspec_z/2 +1, Nspec_z
-      do i = 1, Nspec_x+2
-        u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL(i,k+dk2,j)
+        u2_ind( (Nspec_x+2)*(k-1) + i , j ) = u2PL_map(i,k,j)
       end do
     end do
   end do
@@ -2480,8 +2533,8 @@ subroutine record_map(myid)
 
   i = 27
   k = 18
-  write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
-  write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
+  ! write(*,*) "u1_ind", u1_ind( (Nspec_x+2)*(k-1) + i, jgal(ugrid,1) )
+  ! write(*,*) "u1_PL", u1PL(i,k, jgal(ugrid,1))
 
   ! if (myid ==0) then
   !   write(6,*) "u1_ind", u1_ind( 1:600, 8 )
@@ -2528,12 +2581,12 @@ subroutine record_map(myid)
   end do
 
 
-  do i = 0, np-1
-    if (myid == i) then
-      write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
-      write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
-    end if
-  end do
+  ! do i = 0, np-1
+  !   if (myid == i) then
+  !     write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
+  !     write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
+  !   end if
+  ! end do
 
   ! After jpl_list is built, may need to send and recive any planes we dont already own...
   ! ---- ugrid halo exchange for u1,u3 (always, if neighbour exists) ----
@@ -2609,7 +2662,9 @@ subroutine record_map(myid)
   RBf_u2(:,:,UppChn) = -RBf_u2(:,:,UppChn)
 
   if( myid == 0 ) then
-    write(*,*) "RBf_u1", RBf_u1( 500:600, 1, LowChn )
+    ! write(*,*) "RBf_u1", RBf_u1( 1:100, 1, LowChn)
+    ! write(6,*) "RBf_u2", RBf_u2( 1:100, 1, LowChn)
+    write(6,*) "RBf_u3", RBf_u3( 1:100, 1, LowChn)
   end if 
 
 
@@ -2834,19 +2889,6 @@ subroutine record_map(myid)
           convs_uv(1:4,1:4, jpl, i, k_ind, :) = convs_uv(1:4,1:4, jpl, i, k_ind, :) + buff_fib(2, 1:4,1:4, :) 
           convs_uw(1:4,1:4, jpl, i, k_ind, :) = convs_uw(1:4,1:4, jpl, i, k_ind, :) + buff_fib(3, 1:4,1:4, :) 
 
-          ! if (myid==0 .and. jpl==1 .and. i==6 .and. k_ind==6) then
-          !   write(6,*) 'DBG buff_fold sums sigCase 1-4:', &
-          !     sum(abs(buff_fold(:,: ,1,:,:))), &
-          !     sum(abs(buff_fold(:,: ,2,:,:))), &
-          !     sum(abs(buff_fold(:,: ,3,:,:))), &
-          !     sum(abs(buff_fold(:,: ,4,:,:))), "whiChn", whiChn
-          ! endif
-
-
-          ! write(*,*) maxval(convs_uu(1, jpl, i, k_ind, :))
-          ! if (i==6 .and. k==12) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          !     write(*,*) convs_uu(1, 2, jpl, i, k_ind, 100:102)
-          ! end if
 
           !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! calculate advection term for vu, vv, vw !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           buff_Re(1,1:ncs) = ( u1B_Im(1:ncs)*u2A_Re(1:ncs) + u1B_Re(1:ncs)*u2A_Im(1:ncs) ) * kc_x
@@ -2983,19 +3025,14 @@ subroutine record_map(myid)
   call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv, size(convs_wv), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
   call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww, size(convs_ww), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  if (myid ==0) then
-    write(6,*) "convs_wu", convs_wu(1,1,1, 5, 10, 1:100)
+  if (myid == 0) then
+    write(6,*) "convs_uw", convs_uw(1,1,1, 5, 10, 1:100)
   end if 
 
 
   write(*,*) ''
 
   print *, 'Begin writing'
-
-  ! write(*,'(A,I4,A,1PE12.4,A,1PE12.4)') 'jpl=', jpl, &
-  ! ' max|uu|=', maxval(abs(convs_uu(:,: ,jpl,:,:,:))), &
-  ! ' max|vv|=', maxval(abs(convs_vv(:,: ,jpl,:,:,:)))
-
 
   ! do jpl = 1,PLoINum
   nsamp = 1

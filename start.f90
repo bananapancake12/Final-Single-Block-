@@ -36,6 +36,9 @@
 !                     - )Or sets up parabolic profile)
 !        init_stats - Called from getini : 
 !                     - Initialises statistics
+!          init_fib - Sets up Fibbonacci binning for the map output code
+! init_planes_of_interest - 
+!   trd_alloc_setup - Allocations for outputting map post processing 
 
 !         
 !             start  - done, mostly checked, LUBuild etc cold be a bit dodge 
@@ -2072,6 +2075,7 @@ subroutine read_in(myid)
     ! end do
     ! close(10)
     
+    
     !!!!!!!!!!!!!!    u3  NEW  !!!!!!!!!!!!!!
     fnameimb = trim(dirin)//'/u3'//filout
     write(*,*) 'u3 from file ',trim(fnameimb),','
@@ -2079,28 +2083,49 @@ subroutine read_in(myid)
     read(10)
     read(10)
     read(10)
+
     ju1=jgal(2,1)-1
     ju2=jgal(2,2)
     ju1=max(ju1,N2(4,0))
+
+    ! ---- determine whether file is "short" (nzin==1) by peeking first record we will read
+    nx = nxxu(ju1)
+    nz = nzzu(ju1)
+    allocate(buffSR(nx,nz))
+    buffSR(:,:) = 0d0
+    read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+
+    recv_flg = merge(1, 0, nzin == 1)
+    call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+
+    deallocate(buffSR)
+
+    ! ---- restart and position back to ju1
+    rewind(10)
+    read(10)
+    read(10)
+    read(10)
+
     do j=N2(4,0),ju1-1
       read(10)
     end do
+
     do j=ju1,ju2
       nx=nxxu(j)
       nz=nzzu(j)
       allocate(buffSR(nx,nz))
-      buffSR(:,:) = 0
-      read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+      buffSR(:,:) = 0d0
 
-      if (j == ju1) then
-        recv_flg = merge(1, 0, nzin == 1)
-        call MPI_BCAST(recv_flg, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
+      if (recv_flg == 1) then
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR(:,1)
+      else
+        read(10) jin,dummI,nxin,nzin,dummRe,buffSR
       end if
 
       call buff_to_u(u3PL(1,1,j),buffSR,nx,nz,igal,kgal)
       deallocate(buffSR)
     end do
-    if (nzin == 1)  then
+    if (recv_flg  == 1)  then
       do iproc=1,np-1
         ju1=planelim(2,1,iproc)
         ju2=planelim(2,2,iproc)
@@ -2864,7 +2889,7 @@ subroutine init_planes_of_interest
 
 
 
-  open(40, file='output/PlaneOfInterest.txt', form='formatted')
+  open(40, file='PlaneOfInterest.txt', form='formatted')
   read(40,*) tmpInt(1:2)
   PLoINum  = tmpInt(1)
   inoutunit= tmpInt(2)    !'inoutunit=0/1' for outer/inner units
