@@ -222,6 +222,8 @@ module declaration
 
   integer :: n_planesU
   integer, allocatable :: jpl_listU(:)
+  integer :: n_planes
+  integer, allocatable :: jpl_listL(:)
 
 
 

@@ -24,7 +24,7 @@ subroutine map(myid)
   real(8), allocatable :: convs_wv_tmp(:,:,:,:,:,:)
   real(8), allocatable :: convs_ww_tmp(:,:,:,:,:,:)
 
-  integer :: it_moi, jpl, jbf
+  integer :: it_moi, jpl, jbf, idx
   integer :: k_ind, IkkcNeg
   integer :: ric, ncs
   integer :: Ntx, Ntz, f, s, jL, jU
@@ -51,8 +51,8 @@ subroutine map(myid)
   character(len=256):: fnameList
   character(len=256):: output, map_output
 
-  integer :: n_planes, idx
-  integer, allocatable :: jpl_listL(:)
+  ! integer :: n_planes, idx
+  ! integer, allocatable :: jpl_listL(:)
 
   integer :: max_iia, max_kka
 
@@ -143,46 +143,46 @@ subroutine map(myid)
 
 
 
-  ! ----- Building lists of what PLoI each rank owns ----- !
-  n_planes = 0 
-  do jpl = 1, PLoINum
-    j   = NYoI(jpl)
-    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then
-      n_planes = n_planes + 1
-    end if 
-  end do 
+  ! ! ----- Building lists of what PLoI each rank owns ----- !
+  ! n_planes = 0 
+  ! do jpl = 1, PLoINum
+  !   j   = NYoI(jpl)
+  !   if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then
+  !     n_planes = n_planes + 1
+  !   end if 
+  ! end do 
 
-  allocate(jpl_listL(n_planes))
+  ! allocate(jpl_listL(n_planes))
 
-  idx = 0
-  do jpl = 1, PLoINum
-    j   = NYoI(jpl)
-    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then 
-      idx = idx + 1
-      jpl_listL(idx) = jpl
-    end if 
-  end do 
+  ! idx = 0
+  ! do jpl = 1, PLoINum
+  !   j   = NYoI(jpl)
+  !   if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then 
+  !     idx = idx + 1
+  !     jpl_listL(idx) = jpl
+  !   end if 
+  ! end do 
 
-  ! --- Upper list: decide ownership using mirrored physical plane jU
-  n_planesU = 0
-  do jpl = 1, PLoINum
-    jU = nyf - NYoI(jpl) -1
-    ! write(6,*) "JU", jU, "nyf", nyf
-    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) n_planesU = n_planesU + 1
-  end do
+  ! ! --- Upper list: decide ownership using mirrored physical plane jU
+  ! n_planesU = 0
+  ! do jpl = 1, PLoINum
+  !   jU = nyf - NYoI(jpl) -1
+  !   ! write(6,*) "JU", jU, "nyf", nyf
+  !   if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) n_planesU = n_planesU + 1
+  ! end do
   
-  if (allocated(jpl_listU)) deallocate(jpl_listU)
-  allocate(jpl_listU(n_planesU))
+  ! if (allocated(jpl_listU)) deallocate(jpl_listU)
+  ! allocate(jpl_listU(n_planesU))
 
-  idx = 0
-  do jpl = 1, PLoINum
-    jU = nyf - NYoI(jpl) -1
-    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
-      idx = idx + 1
-      jpl_listU(idx) = jpl
-      ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
-    end if
-  end do
+  ! idx = 0
+  ! do jpl = 1, PLoINum
+  !   jU = nyf - NYoI(jpl) -1
+  !   if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
+  !     idx = idx + 1
+  !     jpl_listU(idx) = jpl
+  !     ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
+  !   end if
+  ! end do
 
 
   ! do i = 0, np-1
@@ -608,59 +608,13 @@ subroutine map(myid)
     write(6,*) "convs_uw", convs_uw(1,1,1, 5, 10, 1:100)
   end if 
 
-
-  ! write(*,*) ''
-
-  ! print *, 'Begin writing'
-
-  ! ! do jpl = 1,PLoINum
-  ! nsamp = 1
-
-  ! do idx = 1, n_planesU
-  !   jpl = jpl_listU(idx)
-  !   j   = NYoI(jpl)
-  !   write(extnkx,'(i3.3)') MoINumX
-  !   write(extnkz,'(i3.3)') MoINumZ
-  !   write(extny ,'(i3.3)') int(yPLoi(jpl))
-
-  !   output = 'output'
-  !   map_output = 'map_output'
-
-  !   write(ext4,'(i5.5)') int(100d0*(t))!int(t)!
-
-  !   fnameList = trim(output)//'/'//trim(map_output)//'/TRD_'//extnkx//'_'//extnkz//'_'//extny//'_t'//ext4//'.dat'
-
-  !   open(unit=50, file=fnameList, form='unformatted')
-  !   write(50) Re, alp, bet, mpgx, Ntx, Ntz
-  !   write(50) NYoI(jpl), yPLoi(jpl)
-  !   write(50) NXfib(:), NZfib(:)
-  !   write(50) NXoI(:), NZoI(:)
-  !   write(50) nsamp
-  !   do i = 1,MoINumX
-  !     do k = 1, MoINumZ
-  !       write(50)
-  !       write(50) NXoI(i), NZoI(k)
-  !       do f = 1, 4
-  !         do s = 1,4
-  !         write(50) convs_uu(f, s, jpl, i, k, :), convs_uv(f, s, jpl, i, k, :), convs_uw(f, s, jpl, i, k, :)
-  !         write(50) convs_vu(f, s, jpl, i, k, :), convs_vv(f, s, jpl, i, k, :), convs_vw(f, s, jpl, i, k, :)
-  !         write(50) convs_wu(f, s, jpl, i, k, :), convs_wv(f, s, jpl, i, k, :), convs_ww(f, s, jpl, i, k, :)
-
-  !             ! if (i==7 .and. k==7) then !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !             !     write(*,*) convs_uu(1, 1, jpl, i, k, 50:52)
-  !             ! end if
-  !         end do
-  !       end do
-  !     end do
-  !   end do
-  !   close(50)
-  ! end do
-
-  ! call MPI_BARRIER(MPI_COMM_WORLD, ierr)
+  deallocate(convs_uu_tmp, convs_uv_tmp, convs_uw_tmp)
+  deallocate(convs_vu_tmp, convs_vv_tmp, convs_vw_tmp)
+  deallocate(convs_wu_tmp, convs_wv_tmp, convs_ww_tmp)
 
   deallocate(u1_ind, u2_ind, u3_ind)
   deallocate(u1PL_map, u2PL_map, u3PL_map)
-  deallocate(jpl_listL)
+
 
     
 
@@ -673,7 +627,7 @@ subroutine write_map(myid)
   include 'mpif.h'
 
   integer :: myid, Ntx, Ntz, ierr
-  integer :: n_planes, idx
+  integer :: idx
   integer :: jpl,j,i,k,f,s
 
   character(len=3)  :: extnkx, extnkz, extny, extmod

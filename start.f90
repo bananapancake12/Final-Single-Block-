@@ -413,7 +413,7 @@ end if
   nwrite_map = nwrite
   
   nstat = min(20,nwrite)
-  nmap = min(20,nwrite_map)
+  nmap = min(5,nwrite_map)
 
   ! Initialise the FFT
 
@@ -655,56 +655,12 @@ end if
   spUV = 0d0
   spP  = 0d0
 
+  ! initialising map outputs and doing all the setup so only calc is done when map is called 
 
-
-  ! initialising map outputs 
-  !if (myid ==0) then
-    call init_fib
-    call init_planes_of_interest
-    call init_triads(myid)
-    call trd_alloc_setup
-  !end if 
-
-  ! call MPI_Bcast(PLoINum,  1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(inoutunit,1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(MoINumX, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(MoINumZ, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-
-  ! if (myid /= 0) then
-  !     allocate(NYoI(PLoINum))
-  !     allocate(yPLoi(PLoINum))
-  !     allocate(buffIndj(PLoINum+1))
-  !     allocate(NXfib(MoINumX), KXfib(MoINumX), NXoI(MoINumX))
-  !     allocate(NZfib(MoINumZ), KZfib(MoINumZ), NZoI(MoINumZ))
-  !     allocate(NXlim(MoINumX,2), NZlim(MoINumZ,2))
-  ! end if
-
-  ! call MPI_Bcast(NYoI,     PLoINum,   MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(yPLoi,    PLoINum,   MPI_REAL8,   0, MPI_COMM_WORLD, ierr)
-  ! call MPI_Bcast(buffIndj, PLoINum+1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-  ! call MPI_BCAST(NXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(KXfib, MoINumX, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NXoI , MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NXlim, 2*MoINumX, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-  ! call MPI_BCAST(NZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(KZfib, MoINumZ, MPI_REAL8, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NZoI , MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-  ! call MPI_BCAST(NZlim, 2*MoINumZ, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
-
-
-  
-
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
-  ! if (myid == 0) then
-  !   write(*,*) 'Reading in nonlinear interaction list'
-  !   write(*,*) dirlist
-  !   write(*,*)
-  ! end if
-  ! call nonlinRead
-  ! call MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  call init_fib
+  call init_planes_of_interest
+  call init_triads(myid)
+  call trd_alloc_setup
 
   
 end subroutine
@@ -3088,6 +3044,7 @@ subroutine trd_alloc_setup
   implicit none
 
   integer :: NRplxz
+  integer :: jpl, j, jU, idx
 
   NRplxz = (Nspec_x+2) * Nspec_z
 
@@ -3130,5 +3087,48 @@ subroutine trd_alloc_setup
   convs_ww = 0.0d0
 
   nsamp = 0
+
+  
+  ! ----- Building lists of what PLoI each rank owns ----- !
+  n_planes = 0 
+  do jpl = 1, PLoINum
+    j   = NYoI(jpl)
+    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then
+      n_planes = n_planes + 1
+    end if 
+  end do 
+
+  allocate(jpl_listL(n_planes))
+
+  idx = 0
+  do jpl = 1, PLoINum
+    j   = NYoI(jpl)
+    if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then 
+      idx = idx + 1
+      jpl_listL(idx) = jpl
+    end if 
+  end do 
+
+  ! --- Upper list: decide ownership using mirrored physical plane jU
+  n_planesU = 0
+  do jpl = 1, PLoINum
+    jU = nyf - NYoI(jpl) -1
+    ! write(6,*) "JU", jU, "nyf", nyf
+    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) n_planesU = n_planesU + 1
+  end do
+  
+  if (allocated(jpl_listU)) deallocate(jpl_listU)
+  allocate(jpl_listU(n_planesU))
+
+  idx = 0
+  do jpl = 1, PLoINum
+    jU = nyf - NYoI(jpl) -1
+    if (jU >= jgal(ugrid,1) .and. jU <= jgal(ugrid,2)) then
+      idx = idx + 1
+      jpl_listU(idx) = jpl
+      ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
+    end if
+  end do
+
 
 end subroutine

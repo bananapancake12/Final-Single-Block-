@@ -160,7 +160,7 @@ nextqt = floor(t*10d0)/10d0+0.1d0
 
   ! MAIN LOOP 
   ! do while (t<maxt) ! This is the original condition
-  do while (t<maxt .AND. iter <2)
+  do while (t<maxt .AND. iter <21)
     ! Runge-Kutta substeps
     do kRK = 1,3
     
@@ -444,7 +444,7 @@ subroutine finalize(u1,u2,u3,p,div,myid,status,ierr)
   call modes_to_planes_UVP(u3PL,u3,2,nyu,nyu_LB,myid,status,ierr)
   call modes_to_planes_UVP(ppPL, p,3,nyp,nyp_LB,myid,status,ierr)
 
-  call map(myid)
+
   call record_out(u1,myid)
   
   

@@ -79,12 +79,12 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     flagwr = 0
   end if
 
-  if (t>=nextqt) then
-    flagqwr = 1
-    nextqt = nextqt+10.0d0
-  else
-    flagqwr = 0
-  end if
+  ! if (t>=nextqt) then
+  !   flagqwr = 1
+  !   nextqt = nextqt+10.0d0
+  ! else
+  !   flagqwr = 0
+  ! end if
 
   ! flags for map outputs
   if (iter-iter0mp>=nmap .and. kRK==1) then
@@ -165,10 +165,6 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
 
   !!!!!!!!!!!!! record out: !!!!!!!!!!!!!
 
-  if (flagmwr==1) then
-    call map(myid)
-    call write_map(myid)
-  end if
 
   if (flagwr==1) then
     call error(div,myid,ierr)
@@ -343,12 +339,6 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     
     do j = limPL_incw(vgrid,1,myid),limPL_incw(vgrid,2,myid)
       call der_z_N(u2PLN(:,:,j),wx(:,:,j),k1F_z) !C! u2PL in Fourier space
-      ! call der_z_N(u2PLN(:,:,j),wx(:,:,j),k1F_z) !C! u2PL in Fourier space
-      if(j == 10 ) then
-        !write(6,*) "wx", wx(:,10,j)
-      end if 
-
-
     end do
   
     call der_yv_h_wx(du3dy_columns,u3,myid)
@@ -377,7 +367,7 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     
     if (flagmwr==1) then
       ! call write map here later :)
-
+      call write_map(myid)
     end if    
 
         
