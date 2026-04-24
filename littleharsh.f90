@@ -45,7 +45,7 @@
 program littleharsh
 
   use declaration
-  ! use init_mod
+  ! use init_mod 
   ! use littleharsh_mod
   ! use tridLU_3D
   implicit none
@@ -142,7 +142,10 @@ program littleharsh
 
   ! Get the initial conditions
   call getini(u1,u2,u3,p,div,myid,status,ierr)
-  write(6,*) 'finished getini', myid
+
+  if(myid==0) then
+    write(6,*) 'finished getini', myid
+  end if 
 
 !   if(myid==0) then
 !     write(6,*) "u1", u1(jlim(1,ugrid),:)
@@ -160,7 +163,7 @@ nextqt = floor(t*10d0)/10d0+0.1d0
 
   ! MAIN LOOP 
   ! do while (t<maxt) ! This is the original condition
-  do while (t<maxt .AND. iter <21)
+  do while (t<maxt .AND. iter <2)
     ! Runge-Kutta substeps
     do kRK = 1,3
     

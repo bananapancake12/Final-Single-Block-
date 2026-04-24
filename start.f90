@@ -413,7 +413,7 @@ end if
   nwrite_map = nwrite
   
   nstat = min(20,nwrite)
-  nmap = min(5,nwrite_map)
+  nmap = min(20,nwrite_map)
 
   ! Initialise the FFT
 
@@ -660,7 +660,7 @@ end if
   call init_fib
   call init_planes_of_interest
   call init_triads(myid)
-  call trd_alloc_setup
+  call trd_alloc_setup(myid)
 
   
 end subroutine
@@ -2751,7 +2751,7 @@ subroutine init_fib
   end do
   MoINumX = count(fibSum <= nx_trd) 
   MoINumZ = count(fibSum <= nz_trd) 
-  write(6,*) MoINumX, MoINumZ
+
 
   allocate(NXlim(MoINumX,2), NXfib(MoINumX), NZlim(MoINumZ,2), NZfib(MoINumZ))
   NXlim(:,2) = fibSum(1:MoINumX) 
@@ -3039,14 +3039,18 @@ subroutine init_triads(myid)
 end subroutine
 
 
-subroutine trd_alloc_setup
+subroutine trd_alloc_setup(myid)
   use declaration
+  
   implicit none
+  include 'mpif.h'
+  integer :: ierr, myid
 
   integer :: NRplxz
   integer :: jpl, j, jU, idx
 
-  NRplxz = (Nspec_x+2) * Nspec_z
+
+  NRplxz = (Nspec_x+2) * Nspec_z 
 
   allocate( RBf_u1(NRplxz, 0: PLoINumEx +1  , 2), u1pl_tmp(NRplxz), s1pl_tmp(NRplxz) )
   allocate( RBf_u2(NRplxz, 0: PLoINumEx +1-1, 2), u2pl_tmp(NRplxz), s2pl_tmp(NRplxz) )
@@ -3090,15 +3094,15 @@ subroutine trd_alloc_setup
 
   
   ! ----- Building lists of what PLoI each rank owns ----- !
-  n_planes = 0 
+  n_planesL = 0 
   do jpl = 1, PLoINum
     j   = NYoI(jpl)
     if (j >= jgal(ugrid,1) .and. j <= jgal(ugrid,2)) then
-      n_planes = n_planes + 1
+      n_planesL = n_planesL + 1
     end if 
   end do 
 
-  allocate(jpl_listL(n_planes))
+  allocate(jpl_listL(n_planesL))
 
   idx = 0
   do jpl = 1, PLoINum
@@ -3129,6 +3133,47 @@ subroutine trd_alloc_setup
       ! write(6,*) "jpl_listU(idx)", jpl_listU(idx)
     end if
   end do
+
+! ------------------------------------------------------------
+! Build global ownership maps for send and receiving upper and lower channel data later 
+! ownerL(jpl) = rank that owns lower plane jpl
+! ownerU(jpl) = rank that owns upper plane jpl
+! ------------------------------------------------------------
+
+allocate(ownerL(PLoINum))
+allocate(ownerU(PLoINum))
+allocate(ownerL_local(PLoINum))
+allocate(ownerU_local(PLoINum))
+
+ownerL_local = 0
+ownerU_local = 0
+
+! write(*,*) 'myid =', myid
+! write(*,*) 'n_planesL =', n_planesL
+! write(*,*) 'allocated(jpl_listL) =', allocated(jpl_listL)
+
+! find which rank owns each lower plane
+do idx = 1, n_planesL
+  jpl = jpl_listL(idx)
+  ownerL_local(jpl) = myid + 1
+end do
+
+
+! find which rank owns each upper plane
+do idx = 1, n_planesU
+  jpl = jpl_listU(idx)
+  ownerU_local(jpl) = myid + 1
+end do
+
+
+! combine ownership info from all ranks
+call MPI_ALLREDUCE(ownerL_local, ownerL, PLoINum, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+call MPI_ALLREDUCE(ownerU_local, ownerU, PLoINum, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr)
+
+
+! convert back to actual MPI rank numbering
+ownerL = ownerL - 1
+ownerU = ownerU - 1
 
 
 end subroutine

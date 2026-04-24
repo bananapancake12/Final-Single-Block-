@@ -49,16 +49,8 @@ module declaration
   real(8), allocatable :: convs_wv(:,:,:,:,:)
   real(8), allocatable :: convs_ww(:,:,:,:,:)
 
-  real(8), allocatable :: convs_uu_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_uv_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_uw_tmp(:,:,:,:,:)
-
-  real(8), allocatable :: convs_vu_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_vv_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_vw_tmp(:,:,:,:,:)
-
-  real(8), allocatable :: convs_wu_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_wv_tmp(:,:,:,:,:)
-  real(8), allocatable :: convs_ww_tmp(:,:,:,:,:)
+  real(8), allocatable :: buu(:), buv(:), buw(:)
+  real(8), allocatable :: bvu(:), bvv(:), bvw(:)
+  real(8), allocatable :: bwu(:), bwv(:), bww(:)
 
 end module

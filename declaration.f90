@@ -222,8 +222,11 @@ module declaration
 
   integer :: n_planesU
   integer, allocatable :: jpl_listU(:)
-  integer :: n_planes
+  integer :: n_planesL
   integer, allocatable :: jpl_listL(:)
+
+  integer, allocatable :: ownerL(:), ownerU(:)
+  integer, allocatable :: ownerL_local(:), ownerU_local(:)  
 
 
 

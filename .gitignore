@@ -10,3 +10,4 @@ output/
 fort.*
 scorep_*/
 *.out
+unify_map/TRD_*.dat

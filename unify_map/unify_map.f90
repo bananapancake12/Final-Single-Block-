@@ -149,17 +149,9 @@ subroutine start
   allocate(convs_wv(4,4,MoINumX,MoINumZ,MoINumt))
   allocate(convs_ww(4,4,MoINumX,MoINumZ,MoINumt))
 
-  allocate(convs_uu_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_uv_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_uw_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-
-  allocate(convs_vu_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_vv_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_vw_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-
-  allocate(convs_wu_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_wv_tmp(4,4,MoINumX,MoINumZ,MoINumt))
-  allocate(convs_ww_tmp(4,4,MoINumX,MoINumZ,MoINumt))
+  allocate(buu(MoINumt), buv(MoINumt), buw(MoINumt))
+  allocate(bvu(MoINumt), bvv(MoINumt), bvw(MoINumt))
+  allocate(bwu(MoINumt), bwv(MoINumt), bww(MoINumt))
 
   convs_uu = 0d0
   convs_uv = 0d0
@@ -204,18 +196,6 @@ subroutine read_map_file(jpl,isamp)
   integer :: NYoI_file
   real(8) :: yPLoI_file
 
-  convs_uu_tmp = 0d0
-  convs_uv_tmp = 0d0
-  convs_uw_tmp = 0d0
-
-  convs_vu_tmp = 0d0
-  convs_vv_tmp = 0d0
-  convs_vw_tmp = 0d0
-
-  convs_wu_tmp = 0d0
-  convs_wv_tmp = 0d0
-  convs_ww_tmp = 0d0
-
   ! ------------------------------------------------------------
   ! Build filename
   ! ------------------------------------------------------------
@@ -227,7 +207,7 @@ subroutine read_map_file(jpl,isamp)
              extnkx//'_'//extnkz//'_'//extny//'_t'// &
              trim(extL(isamp))//'.dat'
 
-  open(20,file=fnameima,form='unformatted')
+  open(20,file=fnameima,form='unformatted',status='old')
   read(20) Re, alp, bet, mpgx, Ntx, Ntz
   read(20) NYoI_file, yPLoI_file
   read(20) NXfib, NZfib
@@ -258,26 +238,29 @@ subroutine read_map_file(jpl,isamp)
           ! -------------------------
           ! uu uv uw
           ! -------------------------
-          read(20) &
-            convs_uu_tmp(m,s,i,k,:), &
-            convs_uv_tmp(m,s,i,k,:), &
-            convs_uw_tmp(m,s,i,k,:)
+          read(20) buu, buv, buw
+
+          convs_uu(m,s,i,k,:) = convs_uu(m,s,i,k,:) + buu
+          convs_uv(m,s,i,k,:) = convs_uv(m,s,i,k,:) + buv
+          convs_uw(m,s,i,k,:) = convs_uw(m,s,i,k,:) + buw
 
           ! -------------------------
           ! vu vv vw
           ! -------------------------
-          read(20) &
-            convs_vu_tmp(m,s,i,k,:), &
-            convs_vv_tmp(m,s,i,k,:), &
-            convs_vw_tmp(m,s,i,k,:)
+          read(20) bvu, bvv, bvw
+
+          convs_vu(m,s,i,k,:) = convs_vu(m,s,i,k,:) + bvu
+          convs_vv(m,s,i,k,:) = convs_vv(m,s,i,k,:) + bvv
+          convs_vw(m,s,i,k,:) = convs_vw(m,s,i,k,:) + bvw
 
           ! -------------------------
           ! wu wv ww
           ! -------------------------
-          read(20) &
-            convs_wu_tmp(m,s,i,k,:), &
-            convs_wv_tmp(m,s,i,k,:), &
-            convs_ww_tmp(m,s,i,k,:)
+          read(20) bwu, bwv, bww
+
+          convs_wu(m,s,i,k,:) = convs_wu(m,s,i,k,:) + bwu
+          convs_wv(m,s,i,k,:) = convs_wv(m,s,i,k,:) + bwv
+          convs_ww(m,s,i,k,:) = convs_ww(m,s,i,k,:) + bww
 
         end do
       end do
@@ -290,17 +273,17 @@ subroutine read_map_file(jpl,isamp)
   ! --------------------   Accumulate    ---------------------
 
 
-  convs_uu = convs_uu + convs_uu_tmp
-  convs_uv = convs_uv + convs_uv_tmp
-  convs_uw = convs_uw + convs_uw_tmp
+  ! convs_uu = convs_uu + convs_uu_tmp
+  ! convs_uv = convs_uv + convs_uv_tmp
+  ! convs_uw = convs_uw + convs_uw_tmp
 
-  convs_vu = convs_vu + convs_vu_tmp
-  convs_vv = convs_vv + convs_vv_tmp
-  convs_vw = convs_vw + convs_vw_tmp
+  ! convs_vu = convs_vu + convs_vu_tmp
+  ! convs_vv = convs_vv + convs_vv_tmp
+  ! convs_vw = convs_vw + convs_vw_tmp
 
-  convs_wu = convs_wu + convs_wu_tmp
-  convs_wv = convs_wv + convs_wv_tmp
-  convs_ww = convs_ww + convs_ww_tmp
+  ! convs_wu = convs_wu + convs_wu_tmp
+  ! convs_wv = convs_wv + convs_wv_tmp
+  ! convs_ww = convs_ww + convs_ww_tmp
 
 end subroutine
 

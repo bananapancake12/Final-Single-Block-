@@ -57,6 +57,9 @@ subroutine map(myid)
   integer :: max_iia, max_kka
 
   real(8), allocatable:: buffSR(:,:)
+  integer :: planeSize, src, dst
+
+  real(8), allocatable :: planeBuf(:,:,:,:,:), recvPlane(:,:,:,:,:)
 
   allocate( convs_uu_tmp(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
   allocate( convs_uv_tmp(4,4,PLoINum, MoINumX, MoINumZ, MoINumt) )
@@ -187,8 +190,8 @@ subroutine map(myid)
 
   ! do i = 0, np-1
   !   if (myid == i) then
-  !     write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL, jgal(ugrid,1), jgal(ugrid,2)
-  !     write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU, jgal(ugrid,1), jgal(ugrid,2)
+  !     write(6,*) "Rank", myid, "owns LOW planes:", jpl_listL !, jgal(ugrid,1), jgal(ugrid,2)
+  !     write(6,*) "Rank", myid, "owns UPP planes:", jpl_listU !, jgal(ugrid,1), jgal(ugrid,2)
   !   end if
   ! end do
 
@@ -292,13 +295,15 @@ subroutine map(myid)
   !   write(6,*) "RBf_u3(:,jplex,UppChn)", RBf_u3(1:100,1,UppChn)
   ! end if 
   ! ---- Calculating and writing ----
-  write(*,*) 'Calculating'
+  if (myid ==0 ) then
+    write(*,*) 'Calculating'
+  end if 
 
   Do whiChn = LowChn, UppChn
     it_moi = 0
     
     if (whiChn == LowChn) then
-      n_here = n_planes
+      n_here = n_planesL
     else
       n_here = n_planesU
     end if
@@ -314,11 +319,11 @@ subroutine map(myid)
       j   = NYoI(jpl)
       jbf = buffIndj(jpl)
 
-      if (whiChn == LowChn) then
-          write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
-      else
-          write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Upper channel: Plane #', jpl, 'of', PLoINum
-      end if
+      ! if (whiChn == LowChn) then
+      !     write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Lower channel: Plane #', jpl, 'of', PLoINum
+      ! else
+      !     write(*,"(4X,A22,I3,1X,A2,1X,I3)") 'Upper channel: Plane #', jpl, 'of', PLoINum
+      ! end if
 
 
       !Storing u, v, w and the d/dy for that plane
@@ -578,18 +583,100 @@ subroutine map(myid)
     end do
   End Do
 
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uu_tmp, size(convs_uu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uv_tmp, size(convs_uv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uw_tmp, size(convs_uw_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! ! MPI reduce to combine upper and lower channel data!!
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uu_tmp, size(convs_uu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uv_tmp, size(convs_uv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_uw_tmp, size(convs_uw_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vu_tmp, size(convs_vu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vv_tmp, size(convs_vv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vw_tmp, size(convs_vw_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vu_tmp, size(convs_vu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vv_tmp, size(convs_vv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_vw_tmp, size(convs_vw_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wu_tmp, size(convs_wu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv_tmp, size(convs_wv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
-  call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww_tmp, size(convs_ww_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wu_tmp, size(convs_wu_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_wv_tmp, size(convs_wv_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
+  ! call MPI_ALLREDUCE(MPI_IN_PLACE, convs_ww_tmp, size(convs_ww_tmp), MPI_REAL8, MPI_SUM, MPI_COMM_WORLD, ierr)
 
+  planeSize = 4*4*MoINumX*MoINumZ*MoINumt
+  allocate(planeBuf(4,4,MoINumX,MoINumZ,MoINumt))
+  allocate(recvPlane(4,4,MoINumX,MoINumZ,MoINumt))
+
+  ! -------------------------
+  ! lower owners send only their own planes
+  ! -------------------------
+  do idx = 1, n_planesL
+    jpl = jpl_listL(idx)
+
+    if (ownerL(jpl) /= ownerU(jpl)) then
+      dst = ownerU(jpl)
+
+      planeBuf = convs_uu_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 1, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_uv_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 2, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_uw_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 3, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_vu_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 4, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_vv_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 5, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_vw_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 6, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_wu_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 7, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_wv_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 8, MPI_COMM_WORLD, ierr)
+
+      planeBuf = convs_ww_tmp(:,:,jpl,:,:,:)
+      call MPI_SEND(planeBuf, planeSize, MPI_REAL8, dst, 1000 + 10*jpl + 9, MPI_COMM_WORLD, ierr)
+    end if
+  end do
+
+
+  ! -------------------------
+  ! upper owners receive only their own planes
+  ! -------------------------
+  do idx = 1, n_planesU
+    jpl = jpl_listU(idx)
+
+    if (ownerL(jpl) /= ownerU(jpl)) then
+      src = ownerL(jpl)
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 1, MPI_COMM_WORLD, status, ierr)
+      convs_uu_tmp(:,:,jpl,:,:,:) = convs_uu_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 2, MPI_COMM_WORLD, status, ierr)
+      convs_uv_tmp(:,:,jpl,:,:,:) = convs_uv_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 3, MPI_COMM_WORLD, status, ierr)
+      convs_uw_tmp(:,:,jpl,:,:,:) = convs_uw_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 4, MPI_COMM_WORLD, status, ierr)
+      convs_vu_tmp(:,:,jpl,:,:,:) = convs_vu_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 5, MPI_COMM_WORLD, status, ierr)
+      convs_vv_tmp(:,:,jpl,:,:,:) = convs_vv_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 6, MPI_COMM_WORLD, status, ierr)
+      convs_vw_tmp(:,:,jpl,:,:,:) = convs_vw_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 7, MPI_COMM_WORLD, status, ierr)
+      convs_wu_tmp(:,:,jpl,:,:,:) = convs_wu_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 8, MPI_COMM_WORLD, status, ierr)
+      convs_wv_tmp(:,:,jpl,:,:,:) = convs_wv_tmp(:,:,jpl,:,:,:) + recvPlane
+
+      call MPI_RECV(recvPlane, planeSize, MPI_REAL8, src, 1000 + 10*jpl + 9, MPI_COMM_WORLD, status, ierr)
+      convs_ww_tmp(:,:,jpl,:,:,:) = convs_ww_tmp(:,:,jpl,:,:,:) + recvPlane
+
+    end if
+  end do
 
 
   convs_uu = convs_uu + convs_uu_tmp
@@ -604,7 +691,7 @@ subroutine map(myid)
   convs_wv = convs_wv + convs_wv_tmp
   convs_ww = convs_ww + convs_ww_tmp
 
-  if (myid == 0) then
+  if (myid == 7) then
     write(6,*) "convs_uw", convs_uw(1,1,1, 5, 10, 1:100)
   end if 
 
@@ -640,7 +727,7 @@ subroutine write_map(myid)
 
   write(*,*) ''
 
-  print *, 'Begin writing'
+  ! print *, 'Begin writing'
 
   ! do jpl = 1,PLoINum
 

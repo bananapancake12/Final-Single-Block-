@@ -171,6 +171,7 @@ subroutine nonlinear(Nu1,Nu2,Nu3,u1,u2,u3,du1,du2,du3,p,div,myid,status,ierr)
     ppPL = 0d0
     call modes_to_planes_UVP(ppPL,p,3,nyp,nyp_LB,myid,status,ierr)
     !call modes_to_planes_UVP(ppPL,div,3,myid,status,ierr) !Output divergence for checking
+    call map(myid)
     call record_out(u1,myid)
     
   end if

@@ -1,6 +1,6 @@
 filelist =unify_map_list.input
 firstgood=         0
-fildir   =../output/map_output/
+fildir   =../output/map_output4/
 nx       =       128
 nz       =       128
 ny       =       153
