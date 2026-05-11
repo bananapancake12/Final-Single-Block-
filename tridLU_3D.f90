@@ -82,9 +82,9 @@
           end do
         end do
 
-        if(myid==0) then 
-          write(6,*) "solving u/w"
-        end if 
+        ! if(myid==0) then 
+        !   write(6,*) "solving u/w"
+        ! end if 
 
         ! if(myid==0) then
         !   do column = 1,10

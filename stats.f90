@@ -254,8 +254,24 @@ subroutine write_stats(myid,status,ierr)
 
    real(8), allocatable:: xu(:),xv(:),xp(:),xCu(:,:,:),xCv(:,:,:),xCp(:,:,:),buffCu(:,:,:),buffCv(:,:,:),buffCp(:,:,:)
    integer, allocatable:: dummint(:)
-   integer msizeu,msizev,msizep
+   integer msizeu,msizev,msizep, i 
    integer grid
+
+   ! first rebuild ngal 
+
+   ! Defining Ngal from N
+   Ngal = N
+   do i = 1,nband
+      Ngal(1,i) = N(1,i)!*3/2
+      Ngal(2,i) = N(2,i)!*3/2
+   end do
+
+   ! if (myid == 0) then
+   !       write(6,*) "Ngal:"
+   !       do i = 1,4
+   !       write(6,*) Ngal(i,0:4)
+   !       end do
+   ! end if 
 
    if (myid/=0) then   ! SLAVES
       call MPI_SEND(Um  ,limPL_incw(ugrid,2,myid)-limPL_incw(ugrid,1,myid)+1,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
@@ -271,76 +287,6 @@ subroutine write_stats(myid,status,ierr)
       call MPI_SEND(VWm ,limPL_incw(vgrid,2,myid)-limPL_incw(vgrid,1,myid)+1,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
       call MPI_SEND(wxm ,limPL_incw(vgrid,2,myid)-limPL_incw(vgrid,1,myid)+1,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
       call MPI_SEND(wx2m,limPL_incw(vgrid,2,myid)-limPL_incw(vgrid,1,myid)+1,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      ! if (bandPL(myid)==1) then
-      !    ! Conditional statistics
-      !    msizeu = dnx*dnz*(limPL_incw(ugrid,2,myid)-limPL_incw(ugrid,1,myid)+1)
-      !    msizev = dnx*dnz*(limPL_incw(vgrid,2,myid)-limPL_incw(vgrid,1,myid)+1)
-      !    msizep = dnx*dnz*(limPL_incw(pgrid,2,myid)-limPL_incw(pgrid,1,myid)+1)
-      !    if(msizeu>0)then
-      
-      !       if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !          call MPI_SEND(UmC  ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(U2mC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-      !       if(myid<Ny(vgrid,1)-Ny(vgrid,0))then
-      !          call MPI_SEND(VmC  ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(V2mC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-      !       if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !          call MPI_SEND(WmC  ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(W2mC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-      !       if(myid<Ny(pgrid,1)-Ny(pgrid,0))then
-      !          call MPI_SEND(PmC  ,msizep,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(P2mC ,msizep,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-      !       if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !          call MPI_SEND(UVmC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(UWmC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-      !       if(myid<Ny(vgrid,1)-Ny(vgrid,0))then
-      !          call MPI_SEND(VWmC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(wxmC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !          call MPI_SEND(wx2mC,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !       endif
-
-      !    endif
-      ! elseif(bandPL(myid)==nband)then
-      !    ! Conditional statistics
-      !    msizeu = dnx*dnz*(limPL_incw(ugrid,2,myid)-limPL_incw(ugrid,1,myid)+1)
-      !    msizev = dnx*dnz*(limPL_incw(vgrid,2,myid)-limPL_incw(vgrid,1,myid)+1)
-      !    msizep = dnx*dnz*(limPL_incw(pgrid,2,myid)-limPL_incw(pgrid,1,myid)+1)
-      !    ! if(msizeu>0)then
-	
-      !    !    !if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !    !    call MPI_SEND(UmC  ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(U2mC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    !endif
-      !    !    !if(myid<Ny(vgrid,1)-Ny(vgrid,0))then
-      !    !    call MPI_SEND(VmC  ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(V2mC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    !endif
-      !    !    !if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !    !    call MPI_SEND(WmC  ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(W2mC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    !endif
-      !    !    !if(myid<Ny(pgrid,1)-Ny(pgrid,0))then
-      !    !    call MPI_SEND(PmC  ,msizep,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(P2mC ,msizep,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    !endif
-      !    !    !if(myid<Ny(ugrid,1)-Ny(ugrid,0))then
-      !    !    call MPI_SEND(UVmC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(UWmC ,msizeu,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    !endif
-      !    !    !if(myid<Ny(vgrid,1)-Ny(vgrid,0))then
-      !    !    call MPI_SEND(VWmC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(wxmC ,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    !    call MPI_SEND(wx2mC,msizev,MPI_REAL8,0,myid,MPI_COMM_WORLD,ierr)
-      !    ! !endif
-      
-      !    ! endif
-	
-      ! end if
     
    else                ! MASTER
       fnameimb = trim(dirout)//'stats_'//ext1//'x'//ext2//'x'//ext3//'_'//ext4//'.dat'
